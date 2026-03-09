@@ -41,6 +41,7 @@ Copie `.env.example` para `.env.local` e preencha:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://SEU-PROJETO.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=SUA_SUPABASE_PUBLISHABLE_KEY
+SUPABASE_SERVICE_ROLE_KEY=SUA_SUPABASE_SERVICE_ROLE_KEY
 SITE_ACCESS_CODE=seu-codigo-privado
 ```
 
@@ -72,6 +73,10 @@ Em `Supabase > Authentication > Providers > Email`:
 
 Com isso, a pessoa cadastra e entra direto sem validar email.
 Se quiser confirmar depois, pode usar o botao em `/configuracoes`.
+
+Observacao: o cadastro usa rota server-side (`/api/auth/register`) com
+`SUPABASE_SERVICE_ROLE_KEY` para criar usuario ja confirmado.
+Nunca exponha essa chave no frontend.
 
 ## Fluxo atual do app
 

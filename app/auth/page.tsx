@@ -149,22 +149,37 @@ export default function AuthPage() {
         const cleanYoutubeAccount = youtubeAccount.trim();
         const cleanProfilePhotoUrl = profilePhotoUrl.trim();
 
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              name: cleanName,
-              handle: cleanHandle,
-              youtube_account: cleanYoutubeAccount || null,
-              profile_photo_url: cleanProfilePhotoUrl || null
-            }
-          }
+        const registerResponse = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            name: cleanName,
+            handle: cleanHandle,
+            youtubeAccount: cleanYoutubeAccount || null,
+            profilePhotoUrl: cleanProfilePhotoUrl || null
+          })
         });
 
-        if (signUpError) throw signUpError;
+        const registerPayload = (await registerResponse
+          .json()
+          .catch(() => null)) as { error?: string } | null;
 
-        if (data.user && data.session) {
+        if (!registerResponse.ok) {
+          throw new Error(registerPayload?.error || "Falha ao criar conta.");
+        }
+
+        const { data, error: signInAfterRegisterError } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+
+        if (signInAfterRegisterError) throw signInAfterRegisterError;
+
+        if (data.user) {
           await ensureAccount(
             data.user.id,
             cleanName,
@@ -174,14 +189,7 @@ export default function AuthPage() {
           );
         }
 
-        if (data.session) {
-          router.replace("/");
-          return;
-        }
-
-        setMessage(
-          "Conta criada, mas sem sessao ativa. Para entrar sem confirmar email, desative 'Confirm email' em Supabase > Authentication > Providers > Email."
-        );
+        router.replace("/");
         return;
       }
 
