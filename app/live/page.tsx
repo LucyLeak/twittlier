@@ -66,6 +66,8 @@ export default function LivePage() {
   const [overlayMode, setOverlayMode] = useState(false);
   const [requestedHandle, setRequestedHandle] = useState("");
   const [overlayAccessKey, setOverlayAccessKey] = useState("");
+  const [roomHandle, setRoomHandle] = useState("");
+  const [roomHandleInput, setRoomHandleInput] = useState("");
   const [user, setUser] = useState<User | null>(null);
   const [viewerAccount, setViewerAccount] = useState<AccountRow | null>(null);
   const [roomOwnerAccount, setRoomOwnerAccount] = useState<AccountRow | null>(null);
@@ -151,6 +153,43 @@ export default function LivePage() {
     setMessages(mappedMessages);
     setPendingMessages([]);
     setAuthorMap({});
+  }
+
+  async function fetchRoomOwnerByHandle(handle: string) {
+    const supabase = getSupabaseBrowserClient();
+    const normalized = normalizeHandle(handle);
+    const { data: account, error } = await supabase
+      .from("accounts")
+      .select(
+        "user_id, name, handle, youtube_account, profile_photo_url, email_verified_optional, email_verified_at, is_moderator"
+      )
+      .eq("handle", normalized)
+      .maybeSingle();
+
+    if (error) throw error;
+    return (account as AccountRow | null) ?? null;
+  }
+
+  async function switchRoomHandle(
+    newHandle: string,
+    currentViewer: AccountRow,
+    updateUrl = true
+  ) {
+    const normalized = normalizeHandle(newHandle);
+    setRequestedHandle(normalized);
+    setRoomHandle(normalized);
+    setRoomHandleInput(newHandle);
+
+    const roomOwner = await fetchRoomOwnerByHandle(normalized);
+    if (!roomOwner) {
+      throw new Error("Sala de live nao encontrada para esse @.");
+    }
+
+    setRoomOwnerAccount(roomOwner);
+    if (updateUrl) {
+      router.replace(`/live?stream=${encodeURIComponent(normalized)}`, { scroll: false });
+    }
+    await loadRoomMessages(roomOwner, currentViewer);
   }
 
   async function loadRoomMessages(currentRoomOwner: AccountRow, currentViewer: AccountRow) {
@@ -252,26 +291,11 @@ export default function LivePage() {
       if (!active) return;
       setViewerAccount(ensuredViewer);
 
-      let liveRoomOwner = ensuredViewer;
-      if (normalizedStream) {
-        const { data: targetRaw, error: targetError } = await supabase
-          .from("accounts")
-          .select(
-            "user_id, name, handle, youtube_account, profile_photo_url, email_verified_optional, email_verified_at, is_moderator"
-          )
-          .eq("handle", normalizedStream)
-          .maybeSingle();
+      const initialRoomHandle = normalizedStream || ensuredViewer.handle;
+      setRoomHandle(initialRoomHandle);
+      setRoomHandleInput(initialRoomHandle);
 
-        if (targetError) throw targetError;
-        if (!targetRaw) {
-          throw new Error("Sala de live nao encontrada para esse @.");
-        }
-        liveRoomOwner = targetRaw as AccountRow;
-      }
-
-      if (!active) return;
-      setRoomOwnerAccount(liveRoomOwner);
-      await loadRoomMessages(liveRoomOwner, ensuredViewer);
+      await switchRoomHandle(initialRoomHandle, ensuredViewer, false);
     }
 
     bootstrap()
@@ -375,6 +399,25 @@ export default function LivePage() {
     setFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleSwitchRoom(event: FormEvent) {
+    event.preventDefault();
+    setStatus("");
+    setError("");
+
+    if (!viewerAccount) {
+      setError("Sessao invalida. Atualize a pagina.");
+      return;
+    }
+
+    try {
+      await switchRoomHandle(roomHandleInput, viewerAccount);
+    } catch (caughtError) {
+      const messageText =
+        caughtError instanceof Error ? caughtError.message : "Falha ao mudar de sala.";
+      setError(messageText);
     }
   }
 
@@ -584,6 +627,29 @@ export default function LivePage() {
           Sala atual: @{roomOwnerAccount?.handle || "sem-handle"}
           {requestedHandle ? " (acesso por stream)" : " (sua sala)"}
         </p>
+
+        <form className="retro-form" onSubmit={handleSwitchRoom}>
+          <label className="retro-muted" htmlFor="room-handle">
+            Entrar em outra sala
+          </label>
+          <div className="tw-inline-actions">
+            <input
+              id="room-handle"
+              className="retro-input"
+              value={roomHandleInput}
+              onChange={(event) => setRoomHandleInput(event.target.value)}
+              placeholder="Digite o handle da sala (ex: slendermangames)"
+            />
+            <button
+              className="retro-button"
+              type="submit"
+              disabled={!roomHandleInput.trim() || roomHandleInput.trim() === roomHandle}
+            >
+              Acessar
+            </button>
+          </div>
+        </form>
+
         <p className="retro-muted">
           URL para OBS overlay:{" "}
           <code className="tw-live-code">{embedUrl || "carregando..."}</code>
