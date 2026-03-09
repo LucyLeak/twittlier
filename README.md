@@ -3,7 +3,7 @@
 Base inicial de rede social privada, estilo Twitter, com:
 
 - barreira de acesso inicial por codigo privado
-- cadastro/login de usuario (Supabase Auth)
+- login de usuario com Google (Supabase Auth)
 - feed com post de texto
 - upload de foto, video e gif (Supabase Storage)
 - interface simples estilo anos 90
@@ -45,7 +45,7 @@ SITE_ACCESS_CODE=seu-codigo-privado
 ```
 
 Compatibilidade: `NEXT_PUBLIC_SUPABASE_ANON_KEY` tambem funciona (legado).
-`NEXT_PUBLIC_SITE_URL` e recomendado para link de confirmacao de email.
+`NEXT_PUBLIC_SITE_URL` e recomendado para redirect do login OAuth.
 
 ### No Vercel
 
@@ -76,11 +76,11 @@ Acesse:
 ## Fluxo atual do app
 
 1. Usuario entra em `/acesso` e informa o codigo privado (`SITE_ACCESS_CODE`).
-2. Com acesso liberado, vai para `/auth` e cria conta ou faz login.
+2. Com acesso liberado, vai para `/auth` e faz login com Google.
 3. Em `/`, publica texto, foto, video ou gif no feed privado.
 
 ## Observacoes importantes
 
-- Se quiser fluxo sem confirmacao de email na criacao de conta, ajuste isso em:
-  `Supabase > Authentication > Providers / Email`.
+- Em `Supabase > Authentication > Providers > Google`, habilite Google OAuth.
+- Em `Supabase > Authentication > Providers > Google`, use callback URL do Supabase no console do Google.
 - Essa e a base inicial intencionalmente simples para evoluir nos proximos pedidos.
