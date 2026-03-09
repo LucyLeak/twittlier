@@ -11,7 +11,13 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(getPreferredTheme());
+  const [theme, setThemeState] = useState<Theme>("light");
+
+  useEffect(() => {
+    const initialTheme = getPreferredTheme();
+    setThemeState(initialTheme);
+    applyTheme(initialTheme);
+  }, []);
 
   useEffect(() => {
     applyTheme(theme);

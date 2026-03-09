@@ -16,6 +16,7 @@ export function storeTheme(theme: Theme) {
 export function applyTheme(theme: Theme) {
   if (typeof document === "undefined") return;
   document.documentElement.dataset.theme = theme;
+  document.documentElement.style.colorScheme = theme;
 }
 
 export function getPreferredTheme(): Theme {
@@ -23,4 +24,22 @@ export function getPreferredTheme(): Theme {
   const stored = getStoredTheme();
   if (stored) return stored;
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+export function getThemeInitScript() {
+  return `(() => {
+    try {
+      const storageKey = ${JSON.stringify(STORAGE_KEY)};
+      const stored = window.localStorage.getItem(storageKey);
+      const theme =
+        stored === "dark" || stored === "light"
+          ? stored
+          : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.dataset.theme = theme;
+      document.documentElement.style.colorScheme = theme;
+    } catch {
+      document.documentElement.dataset.theme = "light";
+      document.documentElement.style.colorScheme = "light";
+    }
+  })();`;
 }

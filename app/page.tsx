@@ -20,6 +20,8 @@ type PostRecord = {
   accounts: AccountRow | AccountRow[] | null;
 };
 
+type PostQueryRow = Omit<PostRecord, "accounts">;
+
 type TimelineMode = "for_you" | "following";
 
 function getAccountFromPost(post: PostRecord) {
@@ -87,9 +89,7 @@ export default function FeedPage() {
     const [postsRes, followsRes, blocksRes, blockedByRes, accountsRes] = await Promise.all([
       supabase
         .from("posts")
-        .select(
-          "id, user_id, parent_post_id, content, media_url, media_type, created_at, accounts(user_id, name, handle, youtube_account, profile_photo_url, theme_preference, notifications_enabled, email_verified_optional, email_verified_at, is_moderator)"
-        )
+        .select("id, user_id, parent_post_id, content, media_url, media_type, created_at")
         .order("created_at", { ascending: false })
         .limit(120),
       supabase
@@ -112,18 +112,24 @@ export default function FeedPage() {
         .limit(100)
     ]);
 
-    if (postsRes.error) throw postsRes.error;
-    if (followsRes.error) throw followsRes.error;
-    if (blocksRes.error) throw blocksRes.error;
-    if (blockedByRes.error) throw blockedByRes.error;
-    if (accountsRes.error) throw accountsRes.error;
+    if (postsRes.error) throw new Error(postsRes.error.message);
+    if (followsRes.error) throw new Error(followsRes.error.message);
+    if (blocksRes.error) throw new Error(blocksRes.error.message);
+    if (blockedByRes.error) throw new Error(blockedByRes.error.message);
+    if (accountsRes.error) throw new Error(accountsRes.error.message);
 
-    const loadedPosts = (postsRes.data as PostRecord[]) ?? [];
+    const loadedAccounts = (accountsRes.data as AccountRow[]) ?? [];
+    const accountsByUserId = new Map(loadedAccounts.map((account) => [account.user_id, account]));
+    const loadedPosts = ((postsRes.data as PostQueryRow[]) ?? []).map((post) => ({
+      ...post,
+      accounts: accountsByUserId.get(post.user_id) ?? null
+    }));
+
     setPosts(loadedPosts);
     setFollowingIds((followsRes.data || []).map((item) => item.following_user_id));
     setBlockedIds((blocksRes.data || []).map((item) => item.blocked_user_id));
     setBlockedByIds((blockedByRes.data || []).map((item) => item.blocker_user_id));
-    setAccountPool((accountsRes.data as AccountRow[]) ?? []);
+    setAccountPool(loadedAccounts);
 
     await loadPostLikes(loadedPosts.map((post) => post.id), activeAccount.user_id);
   }

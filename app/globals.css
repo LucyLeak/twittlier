@@ -24,6 +24,11 @@ body {
   min-height: 100%;
 }
 
+html {
+  background-color: var(--page-bg);
+  color-scheme: light;
+}
+
 body {
   color: var(--ink);
   font-family: "IBM Plex Sans", "Trebuchet MS", sans-serif;
@@ -102,6 +107,31 @@ a {
   font: inherit;
   padding: 8px;
   border-radius: 0;
+}
+
+.retro-input,
+.retro-textarea,
+.retro-file,
+.tw-composer-input,
+.retro-button,
+.tw-card,
+.retro-window,
+.tw-post-card,
+.tw-suggestion-item,
+.tw-recommended-item,
+.tw-upload-box,
+.tw-live-message,
+.tw-live-code,
+.tw-avatar,
+.tw-profile-avatar,
+.tw-role-chip,
+.tw-mobile-nav {
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease;
 }
 
 .retro-input:focus,
@@ -675,10 +705,10 @@ a {
     justify-content: space-around;
   }
 
-  .tw-mobile-nav-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+.tw-mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
     gap: 2px;
     text-decoration: none;
     color: var(--ink);
@@ -690,6 +720,25 @@ a {
   .tw-mobile-nav-item.active {
     background: var(--accent);
     color: #fff;
+  }
+
+  .tw-nav-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+
+  .tw-nav-icon svg {
+    width: 100%;
+    height: 100%;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   .tw-mobile-nav-label {
@@ -708,6 +757,72 @@ html[data-theme="dark"] {
   --accent: #f2634b;
   --accent-cool: #7aa9ff;
   --danger: #f07171;
+  color-scheme: dark;
+}
+
+html[data-theme="dark"] body {
+  background-image:
+    linear-gradient(var(--page-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--page-grid) 1px, transparent 1px),
+    radial-gradient(circle at 20% 20%, rgba(122, 169, 255, 0.08), transparent 42%);
+}
+
+html[data-theme="dark"] .retro-input,
+html[data-theme="dark"] .retro-textarea,
+html[data-theme="dark"] .retro-file,
+html[data-theme="dark"] .tw-composer-input,
+html[data-theme="dark"] .tw-live-code {
+  background: #0f1118;
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .retro-input:focus,
+html[data-theme="dark"] .retro-textarea:focus,
+html[data-theme="dark"] .tw-composer-input:focus {
+  background: #151824;
+}
+
+html[data-theme="dark"] .retro-button {
+  background: #202330;
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .retro-button:hover {
+  background: #2a2e3d;
+}
+
+html[data-theme="dark"] .retro-button.danger {
+  background: rgba(240, 113, 113, 0.14);
+  color: var(--danger);
+}
+
+html[data-theme="dark"] .retro-button.primary,
+html[data-theme="dark"] .tw-mobile-nav-item.active {
+  color: #fff8f5;
+}
+
+html[data-theme="dark"] .tw-avatar,
+html[data-theme="dark"] .tw-profile-avatar,
+html[data-theme="dark"] .tw-profile-photo-preview {
+  background: #171923;
+}
+
+html[data-theme="dark"] .tw-role-chip {
+  background: #232734;
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .tw-live-message.pending {
+  background: #322a1f;
+}
+
+html[data-theme="dark"] .tw-live-message.rejected {
+  background: #3b2528;
+}
+
+html[data-theme="dark"] .tw-live-overlay .tw-live-message {
+  background: rgba(18, 19, 26, 0.96);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
 }
 
 html[data-theme="dark"] .tw-upload-box {
@@ -720,10 +835,6 @@ html[data-theme="dark"] .tw-upload-box[data-has-file="true"] {
 
 html[data-theme="dark"] .tw-profile-photo-preview {
   background: #1c1e27;
-}
-
-html[data-theme="dark"] img.tw-icon {
-  filter: invert(1) brightness(1.2);
 }
 
 .tw-mobile-nav {
