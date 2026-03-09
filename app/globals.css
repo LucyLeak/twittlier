@@ -1,15 +1,15 @@
 :root {
-  --desktop-bg: #7e8794;
-  --desktop-dot: #6f7884;
-  --window: #c9c9c9;
-  --window-dark: #8e8e8e;
-  --window-light: #f5f5f5;
-  --window-ink: #111;
-  --title-left: #0d2f7e;
-  --title-right: #2d5fa4;
+  --desktop-bg: #008080;
+  --desktop-dot: #0d6d6d;
+  --window: #c0c0c0;
+  --window-dark: #808080;
+  --window-light: #ffffff;
+  --window-ink: #101010;
+  --title-left: #000080;
+  --title-right: #2c66b8;
   --input-bg: #ffffff;
-  --line: #6c6c6c;
-  --danger: #8f1a1a;
+  --line: #7a7a7a;
+  --danger: #9b1111;
 }
 
 * {
@@ -25,13 +25,15 @@ body {
 
 body {
   color: var(--window-ink);
-  font-family: "Tahoma", "MS Sans Serif", sans-serif;
+  font-family: "Tahoma", "Verdana", "MS Sans Serif", sans-serif;
   background-color: var(--desktop-bg);
   background-image:
-    radial-gradient(circle, var(--desktop-dot) 1px, transparent 1px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-  background-position: 0 0, 8px 8px;
-  background-size: 16px 16px;
+    linear-gradient(45deg, rgba(255, 255, 255, 0.04) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(255, 255, 255, 0.04) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(0, 0, 0, 0.06) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(0, 0, 0, 0.06) 75%);
+  background-size: 12px 12px;
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
 }
 
 body.tw-overlay-body {
@@ -51,13 +53,14 @@ a {
 
 .retro-window,
 .tw-card {
-  background: var(--window);
+  background: linear-gradient(180deg, #d6d6d6 0%, var(--window) 35%, #bbbbbb 100%);
   border-top: 2px solid var(--window-light);
   border-left: 2px solid var(--window-light);
   border-right: 2px solid var(--window-dark);
   border-bottom: 2px solid var(--window-dark);
   padding: 10px;
   margin-bottom: 12px;
+  box-shadow: inset 1px 1px 0 #ececec, inset -1px -1px 0 #8f8f8f;
 }
 
 .retro-title,
@@ -70,6 +73,7 @@ a {
   letter-spacing: 0.03em;
   text-transform: uppercase;
   border: 1px solid #001c53;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
 }
 
 .retro-form {
@@ -134,7 +138,7 @@ a {
   border-left: 2px solid #f2f2f2;
   border-right: 2px solid #6b6b6b;
   border-bottom: 2px solid #6b6b6b;
-  background: #d9d9d9;
+  background: linear-gradient(180deg, #e2e2e2 0%, #c7c7c7 100%);
   color: #111;
   padding: 6px 10px;
   cursor: pointer;
@@ -150,12 +154,20 @@ a {
   cursor: wait;
 }
 
+.retro-button:active {
+  border-top-color: #6b6b6b;
+  border-left-color: #6b6b6b;
+  border-right-color: #f2f2f2;
+  border-bottom-color: #f2f2f2;
+  background: #bdbdbd;
+}
+
 .retro-button.primary {
-  background: #c7d6f3;
+  background: linear-gradient(180deg, #d6e4fb 0%, #b9cde9 100%);
 }
 
 .retro-button.danger {
-  background: #eac1c1;
+  background: linear-gradient(180deg, #f0cece 0%, #deafaf 100%);
   color: var(--danger);
 }
 
@@ -179,7 +191,7 @@ a {
 
 .auth-tabs .retro-button[data-active="true"],
 .tw-feed-tabs .retro-button[data-active="true"] {
-  background: #c6d5f1;
+  background: linear-gradient(180deg, #d2e1f8 0%, #b7cae6 100%);
 }
 
 .tw-page-shell {
@@ -255,7 +267,7 @@ a {
   border-left: 2px solid #f1f1f1;
   border-right: 2px solid #707070;
   border-bottom: 2px solid #707070;
-  background: #dddddd;
+  background: linear-gradient(180deg, #e9e9e9 0%, #d0d0d0 100%);
   display: grid;
   gap: 2px;
   padding: 7px 8px;
@@ -264,7 +276,7 @@ a {
 }
 
 .tw-upload-box[data-has-file="true"] {
-  background: #cfdbf3;
+  background: linear-gradient(180deg, #dce7f8 0%, #c4d4ec 100%);
 }
 
 .tw-upload-title {
@@ -351,7 +363,7 @@ a {
 .tw-post-card,
 .tw-suggestion-item,
 .tw-recommended-item {
-  background: #efefef;
+  background: linear-gradient(180deg, #f0f0f0 0%, #dfdfdf 100%);
   border-top: 2px solid #f9f9f9;
   border-left: 2px solid #f9f9f9;
   border-right: 2px solid #7c7c7c;
@@ -392,8 +404,8 @@ a {
   display: grid;
   place-items: center;
   font-weight: 700;
-  color: #113b8a;
-  background: #d8e3f7;
+  color: #0a377f;
+  background: linear-gradient(180deg, #e3ebfb 0%, #c8d8f1 100%);
 }
 
 .tw-post-name {
@@ -415,9 +427,9 @@ a {
 }
 
 .tw-role-chip {
-  border: 1px solid #5879b8;
-  background: #d9e5fb;
-  color: #153d8a;
+  border: 1px solid #5674ab;
+  background: linear-gradient(180deg, #e0eafc 0%, #c8d8f3 100%);
+  color: #113a82;
   font-size: 0.7rem;
   padding: 2px 6px;
 }
@@ -502,7 +514,7 @@ a {
 }
 
 .tw-live-message {
-  background: #efefef;
+  background: linear-gradient(180deg, #f2f2f2 0%, #dfdfdf 100%);
   border-top: 2px solid #f9f9f9;
   border-left: 2px solid #f9f9f9;
   border-right: 2px solid #7c7c7c;
@@ -511,11 +523,11 @@ a {
 }
 
 .tw-live-message.pending {
-  background: #ece6d2;
+  background: linear-gradient(180deg, #f2ecd7 0%, #e3d9b8 100%);
 }
 
 .tw-live-message.rejected {
-  background: #f1dddd;
+  background: linear-gradient(180deg, #f6e2e2 0%, #e8cccc 100%);
 }
 
 .tw-live-message-head {
@@ -570,42 +582,36 @@ a {
 }
 
 .tw-live-overlay .tw-live-message {
-  background: rgba(10, 17, 28, 0.78);
-  border-top: 1px solid rgba(255, 255, 255, 0.25);
-  border-left: 1px solid rgba(255, 255, 255, 0.25);
-  border-right: 1px solid rgba(0, 0, 0, 0.45);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.45);
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(1.5px);
-  animation: tw-overlay-in 180ms ease-out both;
+  background: rgba(192, 192, 192, 0.96);
+  border-top: 2px solid #ffffff;
+  border-left: 2px solid #ffffff;
+  border-right: 2px solid #6d6d6d;
+  border-bottom: 2px solid #6d6d6d;
+  box-shadow: inset 1px 1px 0 #ececec, inset -1px -1px 0 #8f8f8f;
+}
+
+.tw-live-overlay .tw-live-message-head {
+  margin: -8px -8px 8px;
+  padding: 3px 6px;
+  background: linear-gradient(90deg, #000080, #2c66b8);
+  border-bottom: 1px solid #092458;
 }
 
 .tw-live-overlay .tw-live-author {
-  color: #8cc9ff;
+  color: #ffffff;
 }
 
 .tw-live-overlay .tw-live-time {
-  color: #bcc9db;
+  color: #e7eeff;
 }
 
 .tw-live-overlay .tw-live-content {
-  color: #f5f9ff;
+  color: #111111;
 }
 
 .tw-live-overlay .tw-live-media {
   max-height: min(210px, 32vh);
-  border: 1px solid rgba(255, 255, 255, 0.26);
-}
-
-@keyframes tw-overlay-in {
-  from {
-    transform: translateY(6px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+  border: 2px solid #6f6f6f;
 }
 
 @media (max-width: 1100px) {
