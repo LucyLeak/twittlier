@@ -69,6 +69,21 @@ create table if not exists public.posts (
   )
 );
 
+alter table if exists public.posts
+add column if not exists parent_post_id uuid;
+
+alter table if exists public.posts
+add column if not exists content text;
+
+alter table if exists public.posts
+add column if not exists media_url text;
+
+alter table if exists public.posts
+add column if not exists media_type text;
+
+alter table if exists public.posts
+add column if not exists created_at timestamptz not null default now();
+
 create table if not exists public.follows (
   follower_user_id uuid not null references public.accounts(user_id) on delete cascade,
   following_user_id uuid not null references public.accounts(user_id) on delete cascade,
@@ -112,6 +127,11 @@ alter table if exists public.posts drop constraint if exists posts_user_id_fkey;
 alter table if exists public.posts
 add constraint posts_user_id_fkey
 foreign key (user_id) references public.accounts(user_id) on delete cascade;
+
+alter table if exists public.posts drop constraint if exists posts_parent_post_id_fkey;
+alter table if exists public.posts
+add constraint posts_parent_post_id_fkey
+foreign key (parent_post_id) references public.posts(id) on delete cascade;
 
 create index if not exists posts_parent_idx on public.posts(parent_post_id);
 create index if not exists posts_created_at_idx on public.posts(created_at desc);
