@@ -1,6 +1,7 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ChangeEventHandler, FormEventHandler } from "react";
 import { useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
@@ -521,7 +522,7 @@ export default function FeedPage() {
     return { mediaUrl: data.publicUrl, mediaType };
   }
 
-  async function publishPost(event: FormEvent<HTMLFormElement>) {
+  const publishPost: FormEventHandler<HTMLFormElement> = async (event) => {
     event.preventDefault();
     setError("");
     setStatus("");
@@ -560,11 +561,11 @@ export default function FeedPage() {
     } finally {
       setIsPublishing(false);
     }
-  }
+  };
 
-  function onFileChange(event: ChangeEvent<HTMLInputElement>) {
+  const onFileChange: ChangeEventHandler<HTMLInputElement> = (event) => {
     setFile(event.target.files?.[0] ?? null);
-  }
+  };
 
   function clearSelectedFile() {
     setFile(null);
