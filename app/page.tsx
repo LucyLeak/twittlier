@@ -193,17 +193,34 @@ export default function FeedPage() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
 
-  async function ensureLoggedUser() {
+  async function ensureLoggedUser(options?: { redirectOnMissing?: boolean }) {
     const supabase = getSupabaseBrowserClient();
     const { user: sessionUser, error: sessionError } = await getSessionUserWithRetry(supabase);
     if (!sessionUser) {
+      if (user) {
+        return user;
+      }
       if (sessionError) {
         setError(sessionError.message);
+      } else {
+        setError("Sua sessao ainda nao foi confirmada. Tente novamente em instantes.");
       }
-      router.replace("/auth");
+
+      if (options?.redirectOnMissing ?? true) {
+        router.replace("/auth");
+      }
       return null;
     }
     return sessionUser;
+  }
+
+  async function ensureCurrentAccount(activeUser: User) {
+    if (currentAccount) return currentAccount;
+
+    const supabase = getSupabaseBrowserClient();
+    const ensuredAccount = await ensureAccountExists(supabase, getSeedFromUser(activeUser));
+    setCurrentAccount(ensuredAccount);
+    return ensuredAccount;
   }
 
   async function refreshState(currentUserArg?: User, currentAccountArg?: AccountRow) {
@@ -524,11 +541,23 @@ export default function FeedPage() {
 
   const publishPost: FormEventHandler<HTMLFormElement> = async (event) => {
     event.preventDefault();
+    if (isPublishing) return;
+
     setError("");
     setStatus("");
 
-    const activeUser = await ensureLoggedUser();
-    if (!activeUser || !currentAccount) return;
+    const activeUser = await ensureLoggedUser({ redirectOnMissing: false });
+    if (!activeUser) return;
+
+    let activeAccount: AccountRow;
+    try {
+      activeAccount = await ensureCurrentAccount(activeUser);
+    } catch (caughtError) {
+      const messageText =
+        caughtError instanceof Error ? caughtError.message : "Nao foi possivel validar sua conta.";
+      setError(messageText);
+      return;
+    }
 
     const cleanText = text.trim();
     if (!cleanText && !file) {
@@ -541,19 +570,39 @@ export default function FeedPage() {
       const supabase = getSupabaseBrowserClient();
       const { mediaUrl, mediaType } = await handleMediaUpload(activeUser);
 
-      const { error: insertError } = await supabase.from("posts").insert({
-        user_id: currentAccount.user_id,
-        content: cleanText || null,
-        media_url: mediaUrl,
-        media_type: mediaType
-      });
+      const { data: insertedPostRow, error: insertError } = await supabase
+        .from("posts")
+        .insert({
+          user_id: activeAccount.user_id,
+          content: cleanText || null,
+          media_url: mediaUrl,
+          media_type: mediaType
+        })
+        .select("id, user_id, parent_post_id, content, media_url, media_type, created_at")
+        .single();
       if (insertError) throw insertError;
 
       setText("");
-      setFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      clearSelectedFile();
+      if (insertedPostRow) {
+        const optimisticPost: PostRecord = {
+          ...(insertedPostRow as PostQueryRow),
+          accounts: activeAccount
+        };
+
+        setPosts((currentPosts) => [optimisticPost, ...currentPosts.filter((post) => post.id !== optimisticPost.id)]);
+        setPostLikes((currentLikes) => ({
+          ...currentLikes,
+          [optimisticPost.id]: currentLikes[optimisticPost.id] ?? { count: 0, liked: false }
+        }));
+      }
       setStatus("Post publicado.");
-      await refreshState(activeUser, currentAccount);
+      refreshState(activeUser, activeAccount).catch((refreshError) => {
+        console.warn(
+          "Falha ao atualizar timeline depois de publicar:",
+          refreshError instanceof Error ? refreshError.message : refreshError
+        );
+      });
     } catch (caughtError) {
       const messageText =
         caughtError instanceof Error ? caughtError.message : "Erro ao publicar.";

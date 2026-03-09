@@ -107,8 +107,10 @@ export default function LivePage() {
     if (typeof document === "undefined") return;
     if (!overlayMode) return;
 
+    document.documentElement.classList.add("tw-overlay-html");
     document.body.classList.add("tw-overlay-body");
     return () => {
+      document.documentElement.classList.remove("tw-overlay-html");
       document.body.classList.remove("tw-overlay-body");
     };
   }, [overlayMode]);

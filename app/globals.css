@@ -40,9 +40,19 @@ body {
   background-size: 26px 26px, 26px 26px, auto;
 }
 
+html.tw-overlay-html,
 body.tw-overlay-body {
   background: transparent !important;
+  background-color: transparent !important;
   background-image: none !important;
+}
+
+body.tw-overlay-body .tw-mobile-nav {
+  display: none !important;
+}
+
+.tw-live-overlay {
+  background: transparent;
 }
 
 a {
