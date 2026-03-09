@@ -81,7 +81,19 @@ async function fetchAccountByUserId(supabase: SupabaseClient, userId: string) {
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    const lower = error.message.toLowerCase();
+    if (
+      lower.includes("is_moderator") ||
+      lower.includes("email_verified_optional") ||
+      lower.includes("column")
+    ) {
+      throw new Error(
+        "Banco desatualizado. Execute novamente supabase/schema.sql no SQL Editor do Supabase."
+      );
+    }
+    throw error;
+  }
   return (data as AccountRow | null) ?? null;
 }
 

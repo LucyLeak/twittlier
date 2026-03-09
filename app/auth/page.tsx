@@ -12,6 +12,66 @@ import {
 
 type AuthMode = "login" | "signup";
 
+function extractErrorMessage(caughtError: unknown, fallback: string) {
+  if (caughtError instanceof Error && caughtError.message) {
+    return caughtError.message;
+  }
+
+  if (typeof caughtError === "object" && caughtError !== null) {
+    const maybeError = caughtError as {
+      message?: string;
+      details?: string;
+      hint?: string;
+      error_description?: string;
+    };
+    if (typeof maybeError.message === "string" && maybeError.message) {
+      return maybeError.message;
+    }
+    if (typeof maybeError.error_description === "string" && maybeError.error_description) {
+      return maybeError.error_description;
+    }
+    if (typeof maybeError.details === "string" && maybeError.details) {
+      return maybeError.details;
+    }
+    if (typeof maybeError.hint === "string" && maybeError.hint) {
+      return maybeError.hint;
+    }
+  }
+
+  if (typeof caughtError === "string" && caughtError) {
+    return caughtError;
+  }
+
+  return fallback;
+}
+
+function normalizeAuthMessage(rawMessage: string) {
+  const lower = rawMessage.toLowerCase();
+
+  if (lower.includes("invalid login credentials")) {
+    return "Email ou senha invalidos.";
+  }
+
+  if (lower.includes("email not confirmed")) {
+    return "Email ainda nao confirmado. Desative 'Confirm email' no Supabase para login sem confirmacao.";
+  }
+
+  if (
+    lower.includes("is_moderator") ||
+    lower.includes("email_verified_optional") ||
+    lower.includes("follows") ||
+    lower.includes("blocks")
+  ) {
+    return "Banco desatualizado. Execute novamente o arquivo supabase/schema.sql no SQL Editor do Supabase.";
+  }
+
+  if (lower.includes("service_role") || lower.includes("supabase_service_role_key")) {
+    return "Variavel SUPABASE_SERVICE_ROLE_KEY nao configurada no ambiente.";
+  }
+
+  return rawMessage;
+}
+
 export default function AuthPage() {
   const router = useRouter();
 
@@ -43,9 +103,8 @@ export default function AuthPage() {
         await ensureAccountExists(supabase, getSeedFromUser(data.session.user));
         router.replace("/");
       } catch (caughtError) {
-        const messageText =
-          caughtError instanceof Error ? caughtError.message : "Falha ao montar conta.";
-        setError(messageText);
+        const rawMessage = extractErrorMessage(caughtError, "Falha ao montar conta.");
+        setError(normalizeAuthMessage(rawMessage));
       }
     });
 
@@ -78,7 +137,7 @@ export default function AuthPage() {
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            email,
+            email: email.trim().toLowerCase(),
             password,
             name: cleanName,
             handle: cleanHandle,
@@ -96,7 +155,7 @@ export default function AuthPage() {
         }
 
         const { data, error: signInAfterRegisterError } = await supabase.auth.signInWithPassword({
-          email,
+          email: email.trim().toLowerCase(),
           password
         });
 
@@ -118,7 +177,7 @@ export default function AuthPage() {
       }
 
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim().toLowerCase(),
         password
       });
 
@@ -130,9 +189,8 @@ export default function AuthPage() {
       await ensureAccountExists(supabase, getSeedFromUser(data.user));
       router.replace("/");
     } catch (caughtError) {
-      const messageText =
-        caughtError instanceof Error ? caughtError.message : "Falha na autenticacao.";
-      setError(messageText);
+      const rawMessage = extractErrorMessage(caughtError, "Falha na autenticacao.");
+      setError(normalizeAuthMessage(rawMessage));
     } finally {
       setIsLoading(false);
     }
