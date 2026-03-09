@@ -27,6 +27,7 @@ type LiveMessage = {
 
 const LIVE_POLL_MS = 3200;
 const DEFAULT_OVERLAY_KEY = process.env.NEXT_PUBLIC_OBS_OVERLAY_KEY ?? "";
+const OVERLAY_MAX_MESSAGES = 5;
 
 type OverlayApiMessage = {
   id: string;
@@ -88,7 +89,9 @@ export default function LivePage() {
 
   const visibleMessages = useMemo(() => {
     if (overlayMode) {
-      return messages.filter((message) => message.moderation_status === "approved");
+      return messages
+        .filter((message) => message.moderation_status === "approved")
+        .slice(-OVERLAY_MAX_MESSAGES);
     }
     if (!viewerAccount) return [];
     return messages.filter((message) => {
@@ -98,6 +101,16 @@ export default function LivePage() {
       return message.author_user_id === viewerAccount.user_id;
     });
   }, [messages, viewerAccount, canModerateLive, overlayMode]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (!overlayMode) return;
+
+    document.body.classList.add("tw-overlay-body");
+    return () => {
+      document.body.classList.remove("tw-overlay-body");
+    };
+  }, [overlayMode]);
 
   const embedUrl = useMemo(() => {
     if (!origin || !roomOwnerAccount) return "";
@@ -532,7 +545,14 @@ export default function LivePage() {
                 </header>
                 {message.content ? <p className="tw-live-content">{message.content}</p> : null}
                 {message.media_url && message.media_type === "video" ? (
-                  <video className="tw-live-media" src={message.media_url} controls />
+                  <video
+                    className="tw-live-media"
+                    src={message.media_url}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                  />
                 ) : null}
                 {message.media_url && message.media_type !== "video" ? (
                   <img className="tw-live-media" src={message.media_url} alt="Midia da live" />

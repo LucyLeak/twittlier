@@ -34,6 +34,11 @@ body {
   background-size: 16px 16px;
 }
 
+body.tw-overlay-body {
+  background: transparent !important;
+  background-image: none !important;
+}
+
 a {
   color: #113b8a;
 }
@@ -547,17 +552,57 @@ a {
 
 .tw-live-overlay {
   min-height: 100vh;
-  padding: 10px;
+  padding: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  pointer-events: none;
 }
 
 .tw-live-overlay .tw-live-feed {
-  max-width: 700px;
-  margin: 0 auto;
-  max-height: none;
+  width: min(520px, 92vw);
+  margin: 0 0 14px 14px;
+  max-height: 78vh;
+  overflow: hidden;
 }
 
 .tw-live-overlay .tw-live-message {
-  background: rgba(230, 230, 230, 0.9);
+  background: rgba(10, 17, 28, 0.78);
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+  border-left: 1px solid rgba(255, 255, 255, 0.25);
+  border-right: 1px solid rgba(0, 0, 0, 0.45);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.45);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(1.5px);
+  animation: tw-overlay-in 180ms ease-out both;
+}
+
+.tw-live-overlay .tw-live-author {
+  color: #8cc9ff;
+}
+
+.tw-live-overlay .tw-live-time {
+  color: #bcc9db;
+}
+
+.tw-live-overlay .tw-live-content {
+  color: #f5f9ff;
+}
+
+.tw-live-overlay .tw-live-media {
+  max-height: 230px;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+}
+
+@keyframes tw-overlay-in {
+  from {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -604,5 +649,10 @@ a {
 
   .tw-live-feed {
     max-height: 420px;
+  }
+
+  .tw-live-overlay .tw-live-feed {
+    width: min(96vw, 520px);
+    margin: 0 0 10px 10px;
   }
 }
