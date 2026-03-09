@@ -1,15 +1,16 @@
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap");
+
 :root {
-  --desktop-bg: #008080;
-  --desktop-dot: #0d6d6d;
-  --window: #c0c0c0;
-  --window-dark: #808080;
-  --window-light: #ffffff;
-  --window-ink: #101010;
-  --title-left: #000080;
-  --title-right: #2c66b8;
-  --input-bg: #ffffff;
-  --line: #7a7a7a;
-  --danger: #9b1111;
+  --page-bg: #e8e1d2;
+  --page-grid: #d2c9b8;
+  --surface: #f6f1e8;
+  --surface-alt: #ede6d7;
+  --ink: #0f0f0f;
+  --ink-soft: #4a4439;
+  --line: #111111;
+  --accent: #c73922;
+  --accent-cool: #1f3f93;
+  --danger: #851313;
 }
 
 * {
@@ -24,16 +25,14 @@ body {
 }
 
 body {
-  color: var(--window-ink);
-  font-family: "Tahoma", "Verdana", "MS Sans Serif", sans-serif;
-  background-color: var(--desktop-bg);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", "Trebuchet MS", sans-serif;
+  background-color: var(--page-bg);
   background-image:
-    linear-gradient(45deg, rgba(255, 255, 255, 0.04) 25%, transparent 25%),
-    linear-gradient(-45deg, rgba(255, 255, 255, 0.04) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, rgba(0, 0, 0, 0.06) 75%),
-    linear-gradient(-45deg, transparent 75%, rgba(0, 0, 0, 0.06) 75%);
-  background-size: 12px 12px;
-  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+    linear-gradient(var(--page-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--page-grid) 1px, transparent 1px),
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.4), transparent 42%);
+  background-size: 26px 26px, 26px 26px, auto;
 }
 
 body.tw-overlay-body {
@@ -42,7 +41,7 @@ body.tw-overlay-body {
 }
 
 a {
-  color: #113b8a;
+  color: var(--accent-cool);
 }
 
 .retro-page {
@@ -53,27 +52,24 @@ a {
 
 .retro-window,
 .tw-card {
-  background: linear-gradient(180deg, #d6d6d6 0%, var(--window) 35%, #bbbbbb 100%);
-  border-top: 2px solid var(--window-light);
-  border-left: 2px solid var(--window-light);
-  border-right: 2px solid var(--window-dark);
-  border-bottom: 2px solid var(--window-dark);
-  padding: 10px;
+  background: var(--surface);
+  border: 3px solid var(--line);
+  padding: 12px;
   margin-bottom: 12px;
-  box-shadow: inset 1px 1px 0 #ececec, inset -1px -1px 0 #8f8f8f;
+  box-shadow: 6px 6px 0 rgba(17, 17, 17, 0.85);
 }
 
 .retro-title,
 .tw-section-title {
   margin: 0 0 10px;
-  color: #fff;
-  background: linear-gradient(90deg, var(--title-left), var(--title-right));
-  padding: 5px 8px;
-  font-size: 0.9rem;
-  letter-spacing: 0.03em;
+  color: #f8f4ed;
+  background: var(--line);
+  padding: 6px 8px;
+  font-family: "IBM Plex Mono", "Courier New", monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  border: 1px solid #001c53;
-  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
+  border: 2px solid var(--line);
 }
 
 .retro-form {
@@ -100,12 +96,9 @@ a {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  border-top: 2px solid #6a6a6a;
-  border-left: 2px solid #6a6a6a;
-  border-right: 2px solid #efefef;
-  border-bottom: 2px solid #efefef;
-  background: var(--input-bg);
-  color: #111;
+  border: 2px solid var(--line);
+  background: #fffdf8;
+  color: var(--ink);
   font: inherit;
   padding: 8px;
   border-radius: 0;
@@ -114,12 +107,9 @@ a {
 .retro-input:focus,
 .retro-textarea:focus,
 .tw-composer-input:focus {
-  outline: none;
-  border-top-color: #214891;
-  border-left-color: #214891;
-  border-right-color: #d8e5ff;
-  border-bottom-color: #d8e5ff;
-  background: #f8fbff;
+  outline: 2px dashed var(--accent);
+  outline-offset: 1px;
+  background: #ffffff;
 }
 
 .retro-textarea,
@@ -134,19 +124,24 @@ a {
 
 .retro-button {
   font: inherit;
-  border-top: 2px solid #f2f2f2;
-  border-left: 2px solid #f2f2f2;
-  border-right: 2px solid #6b6b6b;
-  border-bottom: 2px solid #6b6b6b;
-  background: linear-gradient(180deg, #e2e2e2 0%, #c7c7c7 100%);
-  color: #111;
+  font-family: "IBM Plex Mono", "Courier New", monospace;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border: 2px solid var(--line);
+  background: var(--surface-alt);
+  color: var(--ink);
   padding: 6px 10px;
   cursor: pointer;
   border-radius: 0;
 }
 
 .retro-button:hover {
-  background: #e0e0e0;
+  background: #e3dbcc;
+}
+
+.retro-button:active {
+  transform: translate(1px, 1px);
 }
 
 .retro-button:disabled {
@@ -154,20 +149,13 @@ a {
   cursor: wait;
 }
 
-.retro-button:active {
-  border-top-color: #6b6b6b;
-  border-left-color: #6b6b6b;
-  border-right-color: #f2f2f2;
-  border-bottom-color: #f2f2f2;
-  background: #bdbdbd;
-}
-
 .retro-button.primary {
-  background: linear-gradient(180deg, #d6e4fb 0%, #b9cde9 100%);
+  background: var(--accent);
+  color: #fff6f2;
 }
 
 .retro-button.danger {
-  background: linear-gradient(180deg, #f0cece 0%, #deafaf 100%);
+  background: #f1d8d4;
   color: var(--danger);
 }
 
@@ -180,7 +168,7 @@ a {
 .retro-muted {
   margin: 0;
   font-size: 0.88rem;
-  color: #3f3f3f;
+  color: var(--ink-soft);
 }
 
 .auth-tabs {
@@ -191,7 +179,8 @@ a {
 
 .auth-tabs .retro-button[data-active="true"],
 .tw-feed-tabs .retro-button[data-active="true"] {
-  background: linear-gradient(180deg, #d2e1f8 0%, #b7cae6 100%);
+  background: var(--accent-cool);
+  color: #f0f5ff;
 }
 
 .tw-page-shell {
@@ -219,13 +208,15 @@ a {
 
 .tw-brand {
   margin: 0 0 4px;
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: 1.25rem;
+  font-family: "Cormorant Garamond", "Times New Roman", serif;
+  font-weight: 600;
 }
 
 .tw-handle-label {
   margin: 0 0 8px;
-  color: #303030;
+  color: var(--ink-soft);
+  font-family: "IBM Plex Mono", "Courier New", monospace;
 }
 
 .tw-menu {
@@ -236,9 +227,11 @@ a {
 
 .tw-subtitle {
   margin: 8px 0 6px;
-  font-size: 0.82rem;
-  color: #3f3f3f;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  font-family: "IBM Plex Mono", "Courier New", monospace;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .tw-composer-card {
@@ -263,11 +256,8 @@ a {
 }
 
 .tw-upload-box {
-  border-top: 2px solid #f1f1f1;
-  border-left: 2px solid #f1f1f1;
-  border-right: 2px solid #707070;
-  border-bottom: 2px solid #707070;
-  background: linear-gradient(180deg, #e9e9e9 0%, #d0d0d0 100%);
+  border: 2px dashed var(--line);
+  background: #faf6ef;
   display: grid;
   gap: 2px;
   padding: 7px 8px;
@@ -276,7 +266,7 @@ a {
 }
 
 .tw-upload-box[data-has-file="true"] {
-  background: linear-gradient(180deg, #dce7f8 0%, #c4d4ec 100%);
+  background: #ece6d8;
 }
 
 .tw-upload-title {
@@ -286,7 +276,7 @@ a {
 
 .tw-upload-meta {
   font-size: 0.78rem;
-  color: #393939;
+  color: var(--ink-soft);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -303,11 +293,8 @@ a {
   width: 100%;
   height: 8px;
   pointer-events: none;
-  background: #b7b7b7;
-  border-top: 1px solid #676767;
-  border-left: 1px solid #676767;
-  border-right: 1px solid #efefef;
-  border-bottom: 1px solid #efefef;
+  background: #d6cdbd;
+  border: 2px solid var(--line);
 }
 
 .tw-composer-progress {
@@ -363,11 +350,8 @@ a {
 .tw-post-card,
 .tw-suggestion-item,
 .tw-recommended-item {
-  background: linear-gradient(180deg, #f0f0f0 0%, #dfdfdf 100%);
-  border-top: 2px solid #f9f9f9;
-  border-left: 2px solid #f9f9f9;
-  border-right: 2px solid #7c7c7c;
-  border-bottom: 2px solid #7c7c7c;
+  background: var(--surface-alt);
+  border: 2px solid var(--line);
   padding: 8px;
 }
 
@@ -404,8 +388,8 @@ a {
   display: grid;
   place-items: center;
   font-weight: 700;
-  color: #0a377f;
-  background: linear-gradient(180deg, #e3ebfb 0%, #c8d8f1 100%);
+  color: #ffffff;
+  background: var(--line);
 }
 
 .tw-post-name {
@@ -418,19 +402,21 @@ a {
 .tw-post-handle,
 .tw-profile-handle,
 .post-time {
-  color: #3b3b3b;
+  color: var(--ink-soft);
   font-size: 0.84rem;
 }
 
 .post-time {
   white-space: nowrap;
+  font-family: "IBM Plex Mono", "Courier New", monospace;
 }
 
 .tw-role-chip {
-  border: 1px solid #5674ab;
-  background: linear-gradient(180deg, #e0eafc 0%, #c8d8f3 100%);
-  color: #113a82;
+  border: 1px solid var(--line);
+  background: #efe8d8;
+  color: var(--ink);
   font-size: 0.7rem;
+  font-family: "IBM Plex Mono", "Courier New", monospace;
   padding: 2px 6px;
 }
 
@@ -461,7 +447,7 @@ a {
 .tw-link-button {
   border: 0;
   background: transparent;
-  color: #113b8a;
+  color: var(--accent-cool);
   font: inherit;
   padding: 0;
   cursor: pointer;
@@ -487,17 +473,19 @@ a {
 
 .tw-profile-name {
   margin: 0;
-  font-size: 1.05rem;
-  font-weight: 700;
+  font-size: 1.1rem;
+  font-family: "Cormorant Garamond", "Times New Roman", serif;
+  font-weight: 600;
 }
 
 .tw-live-code {
   display: inline-block;
   max-width: 100%;
-  background: #efefef;
-  border: 1px solid #7a7a7a;
+  background: #fffdf8;
+  border: 2px solid var(--line);
   padding: 2px 4px;
   overflow-wrap: anywhere;
+  font-family: "IBM Plex Mono", "Courier New", monospace;
 }
 
 .tw-live-feed {
@@ -514,20 +502,17 @@ a {
 }
 
 .tw-live-message {
-  background: linear-gradient(180deg, #f2f2f2 0%, #dfdfdf 100%);
-  border-top: 2px solid #f9f9f9;
-  border-left: 2px solid #f9f9f9;
-  border-right: 2px solid #7c7c7c;
-  border-bottom: 2px solid #7c7c7c;
+  background: var(--surface-alt);
+  border: 2px solid var(--line);
   padding: 8px;
 }
 
 .tw-live-message.pending {
-  background: linear-gradient(180deg, #f2ecd7 0%, #e3d9b8 100%);
+  background: #efe4c9;
 }
 
 .tw-live-message.rejected {
-  background: linear-gradient(180deg, #f6e2e2 0%, #e8cccc 100%);
+  background: #f3dbd7;
 }
 
 .tw-live-message-head {
@@ -539,11 +524,12 @@ a {
 }
 
 .tw-live-author {
-  color: #173f8f;
+  color: var(--accent-cool);
+  font-family: "IBM Plex Mono", "Courier New", monospace;
 }
 
 .tw-live-time {
-  color: #3b3b3b;
+  color: var(--ink-soft);
   font-size: 0.8rem;
   white-space: nowrap;
 }
@@ -558,7 +544,7 @@ a {
   width: 100%;
   max-height: 420px;
   object-fit: contain;
-  border: 2px solid #6f6f6f;
+  border: 2px solid var(--line);
   background: #0a0a0a;
 }
 
@@ -582,36 +568,32 @@ a {
 }
 
 .tw-live-overlay .tw-live-message {
-  background: rgba(192, 192, 192, 0.96);
-  border-top: 2px solid #ffffff;
-  border-left: 2px solid #ffffff;
-  border-right: 2px solid #6d6d6d;
-  border-bottom: 2px solid #6d6d6d;
-  box-shadow: inset 1px 1px 0 #ececec, inset -1px -1px 0 #8f8f8f;
+  background: rgba(246, 241, 232, 0.96);
+  border: 2px solid var(--line);
+  box-shadow: 4px 4px 0 rgba(17, 17, 17, 0.8);
 }
 
 .tw-live-overlay .tw-live-message-head {
   margin: -8px -8px 8px;
-  padding: 3px 6px;
-  background: linear-gradient(90deg, #000080, #2c66b8);
-  border-bottom: 1px solid #092458;
+  padding: 4px 6px;
+  background: var(--line);
 }
 
 .tw-live-overlay .tw-live-author {
-  color: #ffffff;
+  color: #fffdf8;
 }
 
 .tw-live-overlay .tw-live-time {
-  color: #e7eeff;
+  color: #ddd8cc;
 }
 
 .tw-live-overlay .tw-live-content {
-  color: #111111;
+  color: var(--ink);
 }
 
 .tw-live-overlay .tw-live-media {
   max-height: min(210px, 32vh);
-  border: 2px solid #6f6f6f;
+  border: 2px solid var(--line);
 }
 
 @media (max-width: 1100px) {
