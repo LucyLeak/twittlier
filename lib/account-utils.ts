@@ -34,6 +34,8 @@ type AccountSeed = {
   profilePhotoUrl?: string;
 };
 
+const pendingAccountRequests = new Map<string, Promise<AccountRow>>();
+
 export function getSeedFromUser(user: User): AccountSeed {
   const metadata = user.user_metadata ?? {};
   const fallback = user.email?.split("@")[0] || "user";
@@ -99,7 +101,7 @@ async function fetchAccountByUserId(supabase: SupabaseClient, userId: string) {
   return (data as AccountRow | null) ?? null;
 }
 
-export async function ensureAccountExists(supabase: SupabaseClient, seed: AccountSeed) {
+async function ensureAccountExistsInternal(supabase: SupabaseClient, seed: AccountSeed) {
   const existing = await fetchAccountByUserId(supabase, seed.userId);
   if (existing) return existing;
 
@@ -138,4 +140,22 @@ export async function ensureAccountExists(supabase: SupabaseClient, seed: Accoun
   }
 
   throw new Error("Nao foi possivel preparar a conta.");
+}
+
+export async function ensureAccountExists(supabase: SupabaseClient, seed: AccountSeed) {
+  const pendingRequest = pendingAccountRequests.get(seed.userId);
+  if (pendingRequest) {
+    return pendingRequest;
+  }
+
+  const currentRequest = ensureAccountExistsInternal(supabase, seed);
+  pendingAccountRequests.set(seed.userId, currentRequest);
+
+  try {
+    return await currentRequest;
+  } finally {
+    if (pendingAccountRequests.get(seed.userId) === currentRequest) {
+      pendingAccountRequests.delete(seed.userId);
+    }
+  }
 }

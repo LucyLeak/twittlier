@@ -5,8 +5,15 @@ type SessionResult = {
   error: Error | null;
 };
 
+let inFlightSessionRequest: Promise<SessionResult> | null = null;
+
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function toError(caughtError: unknown, fallback: string) {
+  if (caughtError instanceof Error) return caughtError;
+  return new Error(fallback);
 }
 
 function isSessionMissingError(error: Error | AuthError | null) {
@@ -15,50 +22,89 @@ function isSessionMissingError(error: Error | AuthError | null) {
   return message.includes("auth session missing") || message.includes("session_not_found");
 }
 
+export function isSessionLockError(error: Error | AuthError | null) {
+  if (!error) return false;
+  const message = error.message.toLowerCase();
+
+  return (
+    error.name === "AbortError" ||
+    (message.includes("lock") &&
+      (message.includes("steal") ||
+        message.includes("another request") ||
+        message.includes("navigator.locks") ||
+        message.includes("broken by another request")))
+  );
+}
+
+async function getSessionUserOnce(supabase: SupabaseClient): Promise<SessionResult> {
+  let lastError: Error | null = null;
+
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) {
+      lastError = error;
+    } else if (data.session?.user) {
+      return { user: data.session.user, error: null };
+    }
+
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      lastError = userError;
+    } else if (userData.user) {
+      return { user: userData.user, error: null };
+    }
+  } catch (caughtError) {
+    lastError = toError(caughtError, "Falha inesperada ao consultar sessao.");
+  }
+
+  return { user: null, error: lastError };
+}
+
+async function runSessionUserWithRetry(
+  supabase: SupabaseClient,
+  retries: number,
+  delayMs: number
+): Promise<SessionResult> {
+  let lastError: Error | null = null;
+
+  for (let index = 0; index < retries; index += 1) {
+    const result = await getSessionUserOnce(supabase);
+    if (result.user) {
+      return result;
+    }
+
+    lastError = result.error;
+    if (index >= retries - 1) {
+      break;
+    }
+
+    if (lastError && !isSessionMissingError(lastError) && !isSessionLockError(lastError)) {
+      break;
+    }
+
+    await wait(delayMs);
+  }
+
+  return { user: null, error: lastError };
+}
+
 export async function getSessionUserWithRetry(
   supabase: SupabaseClient,
   retries = 3,
   delayMs = 280
 ): Promise<SessionResult> {
-  let lastError: Error | null = null;
-
-  for (let index = 0; index < retries; index += 1) {
-    try {
-      const { data, error } = await supabase.auth.getSession();
-      if (error) {
-        if (!isSessionMissingError(error)) {
-          lastError = error;
-        }
-      } else if (data.session?.user) {
-        return { user: data.session.user, error: null };
-      }
-
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) {
-        if (!isSessionMissingError(userError)) {
-          lastError = userError;
-        }
-      } else if (userData.user) {
-        return { user: userData.user, error: null };
-      }
-
-      if (index < retries - 1) {
-        const { error: refreshError } = await supabase.auth.refreshSession();
-        if (refreshError && !isSessionMissingError(refreshError)) {
-          lastError = refreshError;
-        }
-      }
-    } catch (caughtError) {
-      lastError =
-        caughtError instanceof Error
-          ? caughtError
-          : new Error("Falha inesperada ao consultar sessao.");
-    }
-
-    if (index < retries - 1) {
-      await wait(delayMs);
-    }
+  if (inFlightSessionRequest) {
+    return inFlightSessionRequest;
   }
 
-  return { user: null, error: lastError };
+  const currentRequest = runSessionUserWithRetry(supabase, retries, delayMs);
+  inFlightSessionRequest = currentRequest;
+
+  try {
+    return await currentRequest;
+  } finally {
+    if (inFlightSessionRequest === currentRequest) {
+      inFlightSessionRequest = null;
+    }
+  }
 }

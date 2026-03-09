@@ -5,6 +5,10 @@ import { SupabaseClient } from "@supabase/supabase-js";
 
 let browserClient: SupabaseClient | null = null;
 
+type TwittlierBrowserGlobal = typeof globalThis & {
+  __twittlierSupabaseBrowserClient?: SupabaseClient;
+};
+
 function getSupabaseConfig() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabasePublishableKey =
@@ -21,9 +25,16 @@ function getSupabaseConfig() {
 }
 
 export function getSupabaseBrowserClient() {
+  const browserGlobal = globalThis as TwittlierBrowserGlobal;
+
+  if (!browserClient && browserGlobal.__twittlierSupabaseBrowserClient) {
+    browserClient = browserGlobal.__twittlierSupabaseBrowserClient;
+  }
+
   if (!browserClient) {
     const { supabaseUrl, supabasePublishableKey } = getSupabaseConfig();
     browserClient = createBrowserClient(supabaseUrl, supabasePublishableKey);
+    browserGlobal.__twittlierSupabaseBrowserClient = browserClient;
   }
 
   return browserClient;

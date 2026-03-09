@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { AccountRow, ensureAccountExists, getSeedFromUser } from "@/lib/account-utils";
-import { getSessionUserWithRetry } from "@/lib/session-utils";
+import { getSessionUserWithRetry, isSessionLockError } from "@/lib/session-utils";
 
 type MediaType = "image" | "video" | "gif" | null;
 
@@ -166,6 +166,18 @@ function maskEmail(email: string) {
   return `${maskedLocal}@${maskedDomain}${domainSuffix.length ? `.${domainSuffix.join(".")}` : ""}`;
 }
 
+function getActionErrorMessage(caughtError: unknown, fallback: string) {
+  if (caughtError instanceof Error) {
+    if (isSessionLockError(caughtError)) {
+      return "Sessao em sincronizacao. Tente novamente em instantes.";
+    }
+
+    return caughtError.message || fallback;
+  }
+
+  return fallback;
+}
+
 export default function FeedPage() {
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -194,33 +206,44 @@ export default function FeedPage() {
   const [error, setError] = useState("");
 
   async function ensureLoggedUser(options?: { redirectOnMissing?: boolean }) {
+    if (user) {
+      return user;
+    }
+
     const supabase = getSupabaseBrowserClient();
     const { user: sessionUser, error: sessionError } = await getSessionUserWithRetry(supabase);
     if (!sessionUser) {
-      if (user) {
-        return user;
-      }
       if (sessionError) {
-        setError(sessionError.message);
+        setError(getActionErrorMessage(sessionError, "Falha ao validar sessao."));
       } else {
         setError("Sua sessao ainda nao foi confirmada. Tente novamente em instantes.");
       }
 
-      if (options?.redirectOnMissing ?? true) {
+      if ((options?.redirectOnMissing ?? true) && !isSessionLockError(sessionError)) {
         router.replace("/auth");
       }
       return null;
     }
+
+    setUser(sessionUser);
     return sessionUser;
   }
 
   async function ensureCurrentAccount(activeUser: User) {
-    if (currentAccount) return currentAccount;
+    if (currentAccount?.user_id === activeUser.id) return currentAccount;
 
     const supabase = getSupabaseBrowserClient();
     const ensuredAccount = await ensureAccountExists(supabase, getSeedFromUser(activeUser));
     setCurrentAccount(ensuredAccount);
     return ensuredAccount;
+  }
+
+  async function ensureInteractionContext() {
+    const activeUser = await ensureLoggedUser({ redirectOnMissing: false });
+    if (!activeUser) return null;
+
+    const activeAccount = await ensureCurrentAccount(activeUser);
+    return { activeUser, activeAccount };
   }
 
   async function refreshState(currentUserArg?: User, currentAccountArg?: AccountRow) {
@@ -306,32 +329,39 @@ export default function FeedPage() {
   }
 
   async function toggleLike(post: PostRecord) {
-    if (!currentAccount) return;
-    const supabase = getSupabaseBrowserClient();
-    const currentLikes = postLikes[post.id] ?? { count: 0, liked: false };
+    if (pendingLikePostId === post.id) return;
 
     try {
       setError("");
       setStatus("");
       setPendingLikePostId(post.id);
 
+      const interactionContext = await ensureInteractionContext();
+      if (!interactionContext) {
+        return;
+      }
+
+      const { activeAccount } = interactionContext;
+      const supabase = getSupabaseBrowserClient();
+      const currentLikes = postLikes[post.id] ?? { count: 0, liked: false };
+
       if (currentLikes.liked) {
         const { error } = await supabase
           .from("post_likes")
           .delete()
-          .match({ post_id: post.id, user_id: currentAccount.user_id });
+          .match({ post_id: post.id, user_id: activeAccount.user_id });
         if (error) throw error;
       } else {
         const { error } = await supabase.from("post_likes").insert({
           post_id: post.id,
-          user_id: currentAccount.user_id
+          user_id: activeAccount.user_id
         });
         if (error) throw error;
 
-        if (post.user_id !== currentAccount.user_id) {
+        if (post.user_id !== activeAccount.user_id) {
           await supabase.from("notifications").insert({
             recipient_user_id: post.user_id,
-            actor_user_id: currentAccount.user_id,
+            actor_user_id: activeAccount.user_id,
             type: "like",
             post_id: post.id
           });
@@ -347,48 +377,51 @@ export default function FeedPage() {
       }));
       setStatus(currentLikes.liked ? "Curtida removida." : "Post curtido.");
     } catch (caughtError) {
-      const messageText =
-        caughtError instanceof Error ? caughtError.message : "Falha ao processar curtida.";
-      setError(messageText);
+      setError(getActionErrorMessage(caughtError, "Falha ao processar curtida."));
     } finally {
       setPendingLikePostId((currentId) => (currentId === post.id ? null : currentId));
     }
   }
 
   async function submitReply(post: PostRecord, replyText: string) {
-    if (!currentAccount) return;
     const cleanText = replyText.trim();
     if (!cleanText) return false;
+    if (replySubmittingPostId === post.id) return false;
 
     try {
       setError("");
       setStatus("");
       setReplySubmittingPostId(post.id);
+
+      const interactionContext = await ensureInteractionContext();
+      if (!interactionContext) {
+        return false;
+      }
+
+      const { activeUser, activeAccount } = interactionContext;
       const supabase = getSupabaseBrowserClient();
       const { error: insertError } = await supabase.from("posts").insert({
-        user_id: currentAccount.user_id,
+        user_id: activeAccount.user_id,
         parent_post_id: post.id,
         content: cleanText
       });
       if (insertError) throw insertError;
 
-      if (post.user_id !== currentAccount.user_id) {
+      if (post.user_id !== activeAccount.user_id) {
         await supabase.from("notifications").insert({
           recipient_user_id: post.user_id,
-          actor_user_id: currentAccount.user_id,
+          actor_user_id: activeAccount.user_id,
           type: "reply",
           post_id: post.id
         });
       }
 
-      await refreshState();
+      await refreshState(activeUser, activeAccount);
       const replyTarget = getAccountFromPost(post)?.handle || "anon";
       setStatus(`Comentario publicado para @${replyTarget}.`);
       return true;
     } catch (caughtError) {
-      const messageText =
-        caughtError instanceof Error ? caughtError.message : "Falha ao enviar resposta.";
-      setError(messageText);
+      setError(getActionErrorMessage(caughtError, "Falha ao enviar resposta."));
       return false;
     } finally {
       setReplySubmittingPostId((currentId) => (currentId === post.id ? null : currentId));
