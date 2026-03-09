@@ -19,6 +19,7 @@ type PostRecord = {
 };
 
 type TimelineMode = "for_you" | "following";
+const SESSION_BOOT_TIMEOUT_MS = 8000;
 
 function getAccountFromPost(post: PostRecord) {
   if (!post.accounts) return null;
@@ -31,6 +32,12 @@ function getMediaType(file: File): MediaType {
   if (file.type.startsWith("video/")) return "video";
   if (file.type.startsWith("image/")) return "image";
   return null;
+}
+
+function formatBytes(value: number) {
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export default function FeedPage() {
@@ -57,12 +64,29 @@ export default function FeedPage() {
 
   async function ensureLoggedUser() {
     const supabase = getSupabaseBrowserClient();
-    const { data, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !data.session?.user) {
+    try {
+      const sessionResult = (await Promise.race([
+        supabase.auth.getSession(),
+        new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("SESSION_TIMEOUT")), SESSION_BOOT_TIMEOUT_MS);
+        })
+      ])) as Awaited<ReturnType<typeof supabase.auth.getSession>>;
+
+      const { data, error: sessionError } = sessionResult;
+      if (sessionError || !data.session?.user) {
+        router.replace("/auth");
+        return null;
+      }
+      return data.session.user;
+    } catch (caughtError) {
+      const messageText =
+        caughtError instanceof Error && caughtError.message === "SESSION_TIMEOUT"
+          ? "Sessao demorou para responder. Redirecionando para login."
+          : "Nao foi possivel validar a sessao.";
+      setError(messageText);
       router.replace("/auth");
       return null;
     }
-    return data.session.user;
   }
 
   async function refreshState(currentUserArg?: User, currentAccountArg?: AccountRow) {
@@ -140,15 +164,23 @@ export default function FeedPage() {
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!session?.user) {
-        router.replace("/auth");
-        return;
-      }
+      try {
+        if (!session?.user) {
+          router.replace("/auth");
+          return;
+        }
 
-      setUser(session.user);
-      const ensuredAccount = await ensureAccountExists(supabase, getSeedFromUser(session.user));
-      setCurrentAccount(ensuredAccount);
-      await refreshState(session.user, ensuredAccount);
+        setUser(session.user);
+        const ensuredAccount = await ensureAccountExists(supabase, getSeedFromUser(session.user));
+        setCurrentAccount(ensuredAccount);
+        await refreshState(session.user, ensuredAccount);
+      } catch (caughtError) {
+        const messageText =
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Falha ao sincronizar sessao atual.";
+        setError(messageText);
+      }
     });
 
     return () => {
@@ -268,6 +300,13 @@ export default function FeedPage() {
 
   function onFileChange(event: ChangeEvent<HTMLInputElement>) {
     setFile(event.target.files?.[0] ?? null);
+  }
+
+  function clearSelectedFile() {
+    setFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   }
 
   async function toggleFollow(targetUserId: string, handle: string) {
@@ -443,13 +482,47 @@ export default function FeedPage() {
               />
               <div className="tw-composer-toolbar">
                 <input
+                  id="composer-media"
                   ref={fileInputRef}
-                  className="retro-file"
+                  className="tw-file-input-hidden"
                   type="file"
                   accept="image/*,video/*,.gif"
                   onChange={onFileChange}
                 />
-                <span className="retro-muted">{text.length}/280</span>
+                <label
+                  htmlFor="composer-media"
+                  className="tw-upload-box"
+                  data-has-file={file ? "true" : "false"}
+                >
+                  <span className="tw-upload-title">
+                    {file ? "Midia selecionada" : "Adicionar foto, video ou gif"}
+                  </span>
+                  <span className="tw-upload-meta">
+                    {file
+                      ? `${file.name} (${formatBytes(file.size)})`
+                      : "Clique para escolher uma midia"}
+                  </span>
+                </label>
+                {file ? (
+                  <button
+                    className="retro-button tw-small-button"
+                    type="button"
+                    onClick={clearSelectedFile}
+                  >
+                    Remover
+                  </button>
+                ) : null}
+                <span className="retro-muted tw-char-counter">{text.length}/280</span>
+              </div>
+              <div className="tw-composer-progress">
+                <input
+                  className="tw-composer-range"
+                  type="range"
+                  min={1}
+                  max={280}
+                  value={Math.max(1, text.length)}
+                  readOnly
+                />
               </div>
               {filePreviewUrl ? (
                 file?.type.startsWith("video/") ? (

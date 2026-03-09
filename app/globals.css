@@ -88,6 +88,8 @@ a {
 .retro-textarea,
 .retro-file,
 .tw-composer-input {
+  -webkit-appearance: none;
+  appearance: none;
   width: 100%;
   border-top: 2px solid #6a6a6a;
   border-left: 2px solid #6a6a6a;
@@ -98,6 +100,17 @@ a {
   font: inherit;
   padding: 8px;
   border-radius: 0;
+}
+
+.retro-input:focus,
+.retro-textarea:focus,
+.tw-composer-input:focus {
+  outline: none;
+  border-top-color: #214891;
+  border-left-color: #214891;
+  border-right-color: #d8e5ff;
+  border-bottom-color: #d8e5ff;
+  background: #f8fbff;
 }
 
 .retro-textarea,
@@ -219,9 +232,82 @@ a {
 
 .tw-composer-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 8px;
   align-items: center;
+}
+
+.tw-file-input-hidden {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.tw-upload-box {
+  border-top: 2px solid #f1f1f1;
+  border-left: 2px solid #f1f1f1;
+  border-right: 2px solid #707070;
+  border-bottom: 2px solid #707070;
+  background: #dddddd;
+  display: grid;
+  gap: 2px;
+  padding: 7px 8px;
+  cursor: pointer;
+  min-height: 56px;
+}
+
+.tw-upload-box[data-has-file="true"] {
+  background: #cfdbf3;
+}
+
+.tw-upload-title {
+  font-weight: 700;
+  font-size: 0.83rem;
+}
+
+.tw-upload-meta {
+  font-size: 0.78rem;
+  color: #393939;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tw-char-counter {
+  min-width: 62px;
+  text-align: right;
+}
+
+.tw-composer-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  pointer-events: none;
+  background: #b7b7b7;
+  border-top: 1px solid #676767;
+  border-left: 1px solid #676767;
+  border-right: 1px solid #efefef;
+  border-bottom: 1px solid #efefef;
+}
+
+.tw-composer-progress {
+  display: block;
+}
+
+.tw-composer-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 0;
+  height: 0;
+}
+
+.tw-composer-range::-moz-range-thumb {
+  width: 0;
+  height: 0;
+  border: 0;
 }
 
 .tw-composer-preview,
@@ -412,5 +498,13 @@ a {
   .tw-sticky,
   .tw-composer-card {
     position: static;
+  }
+
+  .tw-composer-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .tw-char-counter {
+    grid-column: 2;
   }
 }
