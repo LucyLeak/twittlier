@@ -189,6 +189,12 @@ a {
   padding: 12px 10px 26px;
 }
 
+@media (max-width: 940px) {
+  .tw-page-shell {
+    padding-bottom: 90px;
+  }
+}
+
 .tw-layout-grid {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr) 300px;
@@ -433,6 +439,13 @@ a {
   margin-top: 6px;
 }
 
+.tw-post-replies {
+  margin-left: 10px;
+  border-left: 2px solid var(--line);
+  padding-left: 10px;
+  margin-top: 8px;
+}
+
 .tw-small-button {
   padding: 5px 8px;
   font-size: 0.82rem;
@@ -647,4 +660,72 @@ a {
     margin: 0 6px 6px;
     max-height: calc(100vh - 12px);
   }
+
+  .tw-mobile-nav {
+    display: flex;
+    gap: 4px;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 6px 10px;
+    background: var(--surface);
+    border-top: 2px solid var(--line);
+    z-index: 20;
+    justify-content: space-around;
+  }
+
+  .tw-mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    text-decoration: none;
+    color: var(--ink);
+    font-size: 0.65rem;
+    padding: 6px 8px;
+    border-radius: 4px;
+  }
+
+  .tw-mobile-nav-item.active {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .tw-mobile-nav-label {
+    display: none;
+  }
+}
+
+html[data-theme="dark"] {
+  --page-bg: #0b0c11;
+  --page-grid: #1b1b22;
+  --surface: #12131a;
+  --surface-alt: #1a1c25;
+  --ink: #f1f1f5;
+  --ink-soft: #b2b2c5;
+  --line: #2a2b34;
+  --accent: #f2634b;
+  --accent-cool: #7aa9ff;
+  --danger: #f07171;
+}
+
+html[data-theme="dark"] .tw-upload-box {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme="dark"] .tw-upload-box[data-has-file="true"] {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+html[data-theme="dark"] .tw-profile-photo-preview {
+  background: #1c1e27;
+}
+
+html[data-theme="dark"] img.tw-icon {
+  filter: invert(1) brightness(1.2);
+}
+
+.tw-mobile-nav {
+  display: none;
 }

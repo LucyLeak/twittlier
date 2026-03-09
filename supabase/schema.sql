@@ -8,6 +8,8 @@ create table if not exists public.accounts (
   handle text not null,
   youtube_account text,
   profile_photo_url text,
+  theme_preference text not null default 'light',
+  notifications_enabled boolean not null default true,
   is_moderator boolean not null default false,
   email_verified_optional boolean not null default false,
   email_verified_at timestamptz,
@@ -18,6 +20,9 @@ create table if not exists public.accounts (
   ),
   constraint accounts_photo_url_format check (
     profile_photo_url is null or profile_photo_url ~* '^https?://'
+  ),
+  constraint accounts_theme_preference_valid check (
+    theme_preference in ('light', 'dark')
   )
 );
 
@@ -51,6 +56,7 @@ execute function public.update_updated_at_column();
 create table if not exists public.posts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.accounts(user_id) on delete cascade,
+  parent_post_id uuid references public.posts(id) on delete cascade,
   content text,
   media_url text,
   media_type text,
@@ -107,11 +113,29 @@ alter table if exists public.posts
 add constraint posts_user_id_fkey
 foreign key (user_id) references public.accounts(user_id) on delete cascade;
 
+create index if not exists posts_parent_idx on public.posts(parent_post_id);
 create index if not exists posts_created_at_idx on public.posts(created_at desc);
 create index if not exists follows_following_user_idx on public.follows(following_user_id);
 create index if not exists blocks_blocked_user_idx on public.blocks(blocked_user_id);
 create index if not exists live_messages_room_created_idx on public.live_messages(room_owner_user_id, created_at);
 create index if not exists live_messages_status_idx on public.live_messages(moderation_status);
+
+create table if not exists public.post_likes (
+  post_id uuid not null references public.posts(id) on delete cascade,
+  user_id uuid not null references public.accounts(user_id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (post_id, user_id)
+);
+
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  recipient_user_id uuid not null references public.accounts(user_id) on delete cascade,
+  actor_user_id uuid not null references public.accounts(user_id) on delete cascade,
+  type text not null,
+  post_id uuid references public.posts(id) on delete cascade,
+  read boolean not null default false,
+  created_at timestamptz not null default now()
+);
 
 alter table public.accounts enable row level security;
 alter table public.posts enable row level security;
@@ -325,6 +349,57 @@ using (
       and me.is_moderator = true
   )
 );
+
+-- Post likes
+
+alter table public.post_likes enable row level security;
+
+drop policy if exists "post_likes_select_authenticated" on public.post_likes;
+create policy "post_likes_select_authenticated"
+on public.post_likes
+for select
+to authenticated
+using (true);
+
+drop policy if exists "post_likes_insert_own" on public.post_likes;
+create policy "post_likes_insert_own"
+on public.post_likes
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "post_likes_delete_own" on public.post_likes;
+create policy "post_likes_delete_own"
+on public.post_likes
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
+-- Notifications
+
+alter table public.notifications enable row level security;
+
+drop policy if exists "notifications_select_recipient" on public.notifications;
+create policy "notifications_select_recipient"
+on public.notifications
+for select
+to authenticated
+using (recipient_user_id = auth.uid());
+
+drop policy if exists "notifications_insert_actor" on public.notifications;
+create policy "notifications_insert_actor"
+on public.notifications
+for insert
+to authenticated
+with check (actor_user_id = auth.uid());
+
+drop policy if exists "notifications_update_recipient" on public.notifications;
+create policy "notifications_update_recipient"
+on public.notifications
+for update
+to authenticated
+using (recipient_user_id = auth.uid())
+with check (recipient_user_id = auth.uid());
 
 insert into storage.buckets (id, name, public)
 values ('post-media', 'post-media', true)

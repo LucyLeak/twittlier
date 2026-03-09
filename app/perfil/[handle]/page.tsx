@@ -60,7 +60,7 @@ export default function ProfilePage() {
     const { data: target, error: targetError } = await supabase
       .from("accounts")
       .select(
-        "user_id, name, handle, youtube_account, profile_photo_url, email_verified_optional, email_verified_at, is_moderator"
+        "user_id, name, handle, youtube_account, profile_photo_url, theme_preference, notifications_enabled, email_verified_optional, email_verified_at, is_moderator"
       )
       .eq("handle", routeHandle)
       .maybeSingle();

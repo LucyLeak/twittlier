@@ -6,6 +6,8 @@ export type AccountRow = {
   handle: string;
   youtube_account: string | null;
   profile_photo_url: string | null;
+  theme_preference: "light" | "dark";
+  notifications_enabled: boolean;
   email_verified_optional: boolean;
   email_verified_at: string | null;
   is_moderator: boolean;
@@ -76,7 +78,7 @@ async function fetchAccountByUserId(supabase: SupabaseClient, userId: string) {
   const { data, error } = await supabase
     .from("accounts")
     .select(
-      "user_id, name, handle, youtube_account, profile_photo_url, email_verified_optional, email_verified_at, is_moderator"
+      "user_id, name, handle, youtube_account, profile_photo_url, theme_preference, notifications_enabled, email_verified_optional, email_verified_at, is_moderator"
     )
     .eq("user_id", userId)
     .maybeSingle();

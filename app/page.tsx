@@ -12,6 +12,7 @@ type MediaType = "image" | "video" | "gif" | null;
 type PostRecord = {
   id: string;
   user_id: string;
+  parent_post_id?: string | null;
   content: string | null;
   media_url: string | null;
   media_type: MediaType;
@@ -48,6 +49,8 @@ export default function FeedPage() {
   const [user, setUser] = useState<User | null>(null);
   const [currentAccount, setCurrentAccount] = useState<AccountRow | null>(null);
   const [posts, setPosts] = useState<PostRecord[]>([]);
+  const [postLikes, setPostLikes] = useState<Record<string, { count: number; liked: boolean }>>({});
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [accountPool, setAccountPool] = useState<AccountRow[]>([]);
   const [followingIds, setFollowingIds] = useState<string[]>([]);
   const [blockedIds, setBlockedIds] = useState<string[]>([]);
@@ -85,7 +88,7 @@ export default function FeedPage() {
       supabase
         .from("posts")
         .select(
-          "id, user_id, content, media_url, media_type, created_at, accounts(user_id, name, handle, youtube_account, profile_photo_url, email_verified_optional, email_verified_at, is_moderator)"
+          "id, user_id, parent_post_id, content, media_url, media_type, created_at, accounts(user_id, name, handle, youtube_account, profile_photo_url, theme_preference, notifications_enabled, email_verified_optional, email_verified_at, is_moderator)"
         )
         .order("created_at", { ascending: false })
         .limit(120),
@@ -104,7 +107,7 @@ export default function FeedPage() {
       supabase
         .from("accounts")
         .select(
-          "user_id, name, handle, youtube_account, profile_photo_url, email_verified_optional, email_verified_at, is_moderator"
+          "user_id, name, handle, youtube_account, profile_photo_url, theme_preference, notifications_enabled, email_verified_optional, email_verified_at, is_moderator"
         )
         .limit(100)
     ]);
@@ -115,11 +118,119 @@ export default function FeedPage() {
     if (blockedByRes.error) throw blockedByRes.error;
     if (accountsRes.error) throw accountsRes.error;
 
-    setPosts((postsRes.data as PostRecord[]) ?? []);
+    const loadedPosts = (postsRes.data as PostRecord[]) ?? [];
+    setPosts(loadedPosts);
     setFollowingIds((followsRes.data || []).map((item) => item.following_user_id));
     setBlockedIds((blocksRes.data || []).map((item) => item.blocked_user_id));
     setBlockedByIds((blockedByRes.data || []).map((item) => item.blocker_user_id));
     setAccountPool((accountsRes.data as AccountRow[]) ?? []);
+
+    await loadPostLikes(loadedPosts.map((post) => post.id), activeAccount.user_id);
+  }
+
+  async function loadPostLikes(postIds: string[], currentUserId: string) {
+    if (postIds.length === 0) {
+      setPostLikes({});
+      return;
+    }
+
+    const supabase = getSupabaseBrowserClient();
+    const { data, error } = await supabase
+      .from("post_likes")
+      .select("post_id, user_id")
+      .in("post_id", postIds);
+
+    if (error) {
+      console.warn("Falha ao carregar curtidas", error.message);
+      return;
+    }
+
+    const counts: Record<string, { count: number; liked: boolean }> = {};
+    for (const row of (data || []) as Array<{ post_id: string; user_id: string }>) {
+      const existing = counts[row.post_id] ?? { count: 0, liked: false };
+      existing.count += 1;
+      if (row.user_id === currentUserId) existing.liked = true;
+      counts[row.post_id] = existing;
+    }
+
+    setPostLikes(counts);
+  }
+
+  async function toggleLike(post: PostRecord) {
+    if (!currentAccount) return;
+    const supabase = getSupabaseBrowserClient();
+    const currentLikes = postLikes[post.id] ?? { count: 0, liked: false };
+
+    try {
+      if (currentLikes.liked) {
+        const { error } = await supabase
+          .from("post_likes")
+          .delete()
+          .match({ post_id: post.id, user_id: currentAccount.user_id });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("post_likes").insert({
+          post_id: post.id,
+          user_id: currentAccount.user_id
+        });
+        if (error) throw error;
+
+        if (post.user_id !== currentAccount.user_id) {
+          await supabase.from("notifications").insert({
+            recipient_user_id: post.user_id,
+            actor_user_id: currentAccount.user_id,
+            type: "like",
+            post_id: post.id
+          });
+        }
+      }
+
+      setPostLikes((prev) => ({
+        ...prev,
+        [post.id]: {
+          count: currentLikes.liked ? Math.max(0, currentLikes.count - 1) : currentLikes.count + 1,
+          liked: !currentLikes.liked
+        }
+      }));
+    } catch (caughtError) {
+      const messageText =
+        caughtError instanceof Error ? caughtError.message : "Falha ao processar curtida.";
+      setError(messageText);
+    }
+  }
+
+  async function submitReply(post: PostRecord, replyText: string) {
+    if (!currentAccount) return;
+    const cleanText = replyText.trim();
+    if (!cleanText) return;
+
+    try {
+      setIsActionLoading(true);
+      const supabase = getSupabaseBrowserClient();
+      const { error: insertError } = await supabase.from("posts").insert({
+        user_id: currentAccount.user_id,
+        parent_post_id: post.id,
+        content: cleanText
+      });
+      if (insertError) throw insertError;
+
+      if (post.user_id !== currentAccount.user_id) {
+        await supabase.from("notifications").insert({
+          recipient_user_id: post.user_id,
+          actor_user_id: currentAccount.user_id,
+          type: "reply",
+          post_id: post.id
+        });
+      }
+
+      await refreshState();
+    } catch (caughtError) {
+      const messageText =
+        caughtError instanceof Error ? caughtError.message : "Falha ao enviar resposta.";
+      setError(messageText);
+    } finally {
+      setIsActionLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -207,13 +318,24 @@ export default function FeedPage() {
 
   const timelinePosts = useMemo(() => {
     if (!currentAccount) return [];
-    if (timelineMode === "following") {
-      return visiblePosts.filter(
-        (post) => post.user_id === currentAccount.user_id || followingSet.has(post.user_id)
-      );
-    }
-    return visiblePosts;
+    const allPosts = visiblePosts;
+    const base =
+      timelineMode === "following"
+        ? allPosts.filter(
+            (post) => post.user_id === currentAccount.user_id || followingSet.has(post.user_id)
+          )
+        : allPosts;
+    return base.filter((post) => !post.parent_post_id);
   }, [visiblePosts, timelineMode, currentAccount, followingSet]);
+
+  const repliesByParent = useMemo(() => {
+    const map: Record<string, PostRecord[]> = {};
+    for (const post of visiblePosts) {
+      if (!post.parent_post_id) continue;
+      map[post.parent_post_id] = [...(map[post.parent_post_id] || []), post];
+    }
+    return map;
+  }, [visiblePosts]);
 
   const suggestedAccounts = useMemo(() => {
     if (!currentAccount) return [];
@@ -563,10 +685,14 @@ export default function FeedPage() {
                   const isOwnPost = currentAccount?.user_id === post.user_id;
                   const isFollowingAuthor = followingSet.has(post.user_id);
                   const isBlockedAuthor = blockedSet.has(post.user_id);
+                  const likeInfo = postLikes[post.id] ?? { count: 0, liked: false };
+                  const replyDraft = replyDrafts[post.id] ?? "";
+                  const isReplying = Object.prototype.hasOwnProperty.call(replyDrafts, post.id);
                   const canDelete = Boolean(isOwnPost || currentAccount?.is_moderator);
 
                   return (
-                    <article className="tw-post-card" key={post.id}>
+                    <div key={post.id}>
+                      <article className="tw-post-card">
                       <div className="tw-post-header">
                         <div className="tw-post-author">
                           {author?.profile_photo_url ? (
@@ -605,6 +731,34 @@ export default function FeedPage() {
                             Ver perfil
                           </button>
                         ) : null}
+                        {currentAccount ? (
+                          <>
+                            <button
+                              className="retro-button tw-small-button"
+                              type="button"
+                              onClick={() => toggleLike(post)}
+                            >
+                              {likeInfo.liked ? "Descurtir" : "Curtir"} ({likeInfo.count})
+                            </button>
+                            <button
+                              className="retro-button tw-small-button"
+                              type="button"
+                              onClick={() =>
+                                setReplyDrafts((prev) => {
+                                  const next = { ...prev };
+                                  if (isReplying) {
+                                    delete next[post.id];
+                                  } else {
+                                    next[post.id] = "";
+                                  }
+                                  return next;
+                                })
+                              }
+                            >
+                              {isReplying ? "Cancelar" : "Responder"}
+                            </button>
+                          </>
+                        ) : null}
                         {!isOwnPost && author ? (
                           <>
                             <button
@@ -636,10 +790,99 @@ export default function FeedPage() {
                           </button>
                         ) : null}
                       </div>
+                      {isReplying ? (
+                        <form
+                          className="retro-form"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            submitReply(post, replyDraft);
+                            setReplyDrafts((prev) => {
+                              const next = { ...prev };
+                              delete next[post.id];
+                              return next;
+                            });
+                          }}
+                        >
+                          <textarea
+                            className="tw-composer-input"
+                            placeholder="Escreva uma resposta..."
+                            value={replyDraft}
+                            onChange={(event) =>
+                              setReplyDrafts((prev) => ({ ...prev, [post.id]: event.target.value }))
+                            }
+                          />
+                          <button
+                            className="retro-button primary tw-small-button"
+                            type="submit"
+                            disabled={!replyDraft.trim() || isActionLoading}
+                          >
+                            Enviar resposta
+                          </button>
+                        </form>
+                      ) : null}
                     </article>
-                  );
-                })
-              )}
+                    <div className="tw-post-replies">
+                      {repliesByParent[post.id]?.map((reply) => {
+                        const replyAuthor = getAccountFromPost(reply);
+                        const replyIsOwn = currentAccount?.user_id === reply.user_id;
+
+                        return (
+                          <article className="tw-post-card" key={reply.id}>
+                          <div className="tw-post-header">
+                            <div className="tw-post-author">
+                              {replyAuthor?.profile_photo_url ? (
+                                <img
+                                  className="tw-avatar"
+                                  src={replyAuthor.profile_photo_url}
+                                  alt={`Foto de ${replyAuthor.name}`}
+                                />
+                              ) : (
+                                <div className="tw-avatar fallback">
+                                  {(replyAuthor?.name || "?").slice(0, 1).toUpperCase()}
+                                </div>
+                              )}
+                              <div>
+                                <div className="tw-post-name">
+                                  {replyAuthor?.name || "Anon"}
+                                  {replyAuthor?.is_moderator ? (
+                                    <span className="tw-role-chip">MOD</span>
+                                  ) : null}
+                                </div>
+                                <div className="tw-post-handle">
+                                  @{replyAuthor?.handle || "anon"}
+                                </div>
+                              </div>
+                            </div>
+                            <time className="post-time">
+                              {new Date(reply.created_at).toLocaleString("pt-BR")}
+                            </time>
+                          </div>
+                          {reply.content ? <p className="post-text">{reply.content}</p> : null}
+                          {reply.media_url && reply.media_type === "video" ? (
+                            <video className="tw-post-media" src={reply.media_url} controls />
+                          ) : null}
+                          {reply.media_url && reply.media_type !== "video" ? (
+                            <img className="tw-post-media" src={reply.media_url} alt="Midia do post" />
+                          ) : null}
+
+                          {replyIsOwn ? (
+                            <button
+                              className="retro-button danger tw-small-button"
+                              type="button"
+                              disabled={isActionLoading}
+                              onClick={() => deletePost(reply.id)}
+                            >
+                              Remover
+                            </button>
+                          ) : null}
+                        </article>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })
+          )}
             </div>
           </section>
         </section>

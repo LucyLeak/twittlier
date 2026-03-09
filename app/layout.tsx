@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ThemeProvider } from "@/app/components/ThemeProvider";
+import MobileNav from "@/app/components/MobileNav";
 
 export const metadata: Metadata = {
   title: "Twittlier",
@@ -11,7 +13,12 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>
+        <ThemeProvider>
+          {children}
+          <MobileNav />
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

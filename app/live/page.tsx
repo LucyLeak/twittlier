@@ -161,7 +161,7 @@ export default function LivePage() {
     const { data: account, error } = await supabase
       .from("accounts")
       .select(
-        "user_id, name, handle, youtube_account, profile_photo_url, email_verified_optional, email_verified_at, is_moderator"
+        "user_id, name, handle, youtube_account, profile_photo_url, theme_preference, notifications_enabled, email_verified_optional, email_verified_at, is_moderator"
       )
       .eq("handle", normalized)
       .maybeSingle();
@@ -214,7 +214,7 @@ export default function LivePage() {
       const { data: authorsRaw, error: authorsError } = await supabase
         .from("accounts")
         .select(
-          "user_id, name, handle, youtube_account, profile_photo_url, email_verified_optional, email_verified_at, is_moderator"
+          "user_id, name, handle, youtube_account, profile_photo_url, theme_preference, notifications_enabled, email_verified_optional, email_verified_at, is_moderator"
         )
         .in("user_id", authorIds);
 

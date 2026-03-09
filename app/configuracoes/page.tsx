@@ -12,6 +12,7 @@ import {
   normalizeName
 } from "@/lib/account-utils";
 import { getSessionUserWithRetry } from "@/lib/session-utils";
+import { applyTheme, storeTheme } from "@/lib/theme";
 
 function formatDate(value: string | null) {
   if (!value) return "Nao confirmado";
@@ -37,6 +38,8 @@ export default function SettingsPage() {
   const [profilePhotoFile, setProfilePhotoFile] = useState<File | null>(null);
   const [profilePhotoPreviewUrl, setProfilePhotoPreviewUrl] = useState("");
   const [removeCurrentPhoto, setRemoveCurrentPhoto] = useState(false);
+  const [themePreference, setThemePreference] = useState<"light" | "dark">("light");
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [modTargetHandle, setModTargetHandle] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -52,6 +55,8 @@ export default function SettingsPage() {
     setProfilePhotoPreviewUrl(source.profile_photo_url || "");
     setProfilePhotoFile(null);
     setRemoveCurrentPhoto(false);
+    setThemePreference(source.theme_preference ?? "light");
+    setNotificationsEnabled(source.notifications_enabled ?? true);
     if (photoInputRef.current) {
       photoInputRef.current.value = "";
     }
@@ -106,6 +111,11 @@ export default function SettingsPage() {
       subscription.unsubscribe();
     };
   }, [router]);
+
+  useEffect(() => {
+    applyTheme(themePreference);
+    storeTheme(themePreference);
+  }, [themePreference]);
 
   useEffect(() => {
     if (!profilePhotoFile) return;
@@ -191,11 +201,13 @@ export default function SettingsPage() {
           name: cleanName,
           handle: cleanHandle,
           youtube_account: cleanYoutube,
-          profile_photo_url: cleanPhoto
+          profile_photo_url: cleanPhoto,
+          theme_preference: themePreference,
+          notifications_enabled: notificationsEnabled
         })
         .eq("user_id", user.id)
         .select(
-          "user_id, name, handle, youtube_account, profile_photo_url, email_verified_optional, email_verified_at, is_moderator"
+          "user_id, name, handle, youtube_account, profile_photo_url, theme_preference, notifications_enabled, email_verified_optional, email_verified_at, is_moderator"
         )
         .single();
 
@@ -400,6 +412,37 @@ export default function SettingsPage() {
             {isSaving ? "Salvando..." : "Salvar perfil"}
           </button>
         </form>
+      </section>
+
+      <section className="tw-card">
+        <h2 className="tw-section-title">Aparencia & notificacoes</h2>
+        <div className="retro-form">
+          <label htmlFor="settings-theme">Tema</label>
+          <select
+            id="settings-theme"
+            className="retro-input"
+            value={themePreference}
+            onChange={(event) => setThemePreference(event.target.value as "light" | "dark")}
+          >
+            <option value="light">Claro</option>
+            <option value="dark">Escuro</option>
+          </select>
+
+          <label className="retro-label" htmlFor="settings-notifications">
+            Notificacoes
+          </label>
+          <div className="tw-inline-actions">
+            <label className="retro-input" style={{ margin: 0, padding: "7px 8px" }}>
+              <input
+                id="settings-notifications"
+                type="checkbox"
+                checked={notificationsEnabled}
+                onChange={(event) => setNotificationsEnabled(event.target.checked)}
+              />
+              <span style={{ marginLeft: 8 }}>Ativar notificacoes</span>
+            </label>
+          </div>
+        </div>
       </section>
 
       <section className="tw-card">
