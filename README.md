@@ -38,6 +38,7 @@ Isso cria:
 - tabela `blocks`
 - politicas RLS
 - bucket publico `post-media` com politicas de upload por pasta do usuario
+- bucket publico `profile-media` para upload de foto de perfil por arquivo
 
 ## 2) Configurar variaveis de ambiente
 

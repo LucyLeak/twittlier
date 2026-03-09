@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
@@ -17,15 +17,25 @@ function formatDate(value: string | null) {
   return new Date(value).toLocaleString("pt-BR");
 }
 
+function formatBytes(value: number) {
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function SettingsPage() {
   const router = useRouter();
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   const [user, setUser] = useState<User | null>(null);
   const [account, setAccount] = useState<AccountRow | null>(null);
   const [name, setName] = useState("");
   const [handle, setHandle] = useState("");
   const [youtubeAccount, setYoutubeAccount] = useState("");
-  const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  const [profilePhotoFile, setProfilePhotoFile] = useState<File | null>(null);
+  const [profilePhotoPreviewUrl, setProfilePhotoPreviewUrl] = useState("");
+  const [removeCurrentPhoto, setRemoveCurrentPhoto] = useState(false);
   const [modTargetHandle, setModTargetHandle] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -37,7 +47,13 @@ export default function SettingsPage() {
     setName(source.name);
     setHandle(source.handle);
     setYoutubeAccount(source.youtube_account || "");
-    setProfilePhotoUrl(source.profile_photo_url || "");
+    setProfilePhotoUrl(source.profile_photo_url || null);
+    setProfilePhotoPreviewUrl(source.profile_photo_url || "");
+    setProfilePhotoFile(null);
+    setRemoveCurrentPhoto(false);
+    if (photoInputRef.current) {
+      photoInputRef.current.value = "";
+    }
   }
 
   async function loadData() {
@@ -72,6 +88,60 @@ export default function SettingsPage() {
     };
   }, [router]);
 
+  useEffect(() => {
+    if (!profilePhotoFile) return;
+    const tempUrl = URL.createObjectURL(profilePhotoFile);
+    setProfilePhotoPreviewUrl(tempUrl);
+    return () => URL.revokeObjectURL(tempUrl);
+  }, [profilePhotoFile]);
+
+  function onPhotoFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const selected = event.target.files?.[0] ?? null;
+    if (!selected) return;
+
+    if (!selected.type.startsWith("image/")) {
+      setError("A foto de perfil precisa ser uma imagem.");
+      return;
+    }
+
+    if (selected.size > 10 * 1024 * 1024) {
+      setError("A imagem precisa ter no maximo 10MB.");
+      return;
+    }
+
+    setError("");
+    setProfilePhotoFile(selected);
+    setRemoveCurrentPhoto(false);
+  }
+
+  function removePhotoSelection() {
+    setProfilePhotoFile(null);
+    setRemoveCurrentPhoto(true);
+    setProfilePhotoPreviewUrl("");
+    if (photoInputRef.current) {
+      photoInputRef.current.value = "";
+    }
+  }
+
+  async function uploadProfilePhoto(userId: string) {
+    if (!profilePhotoFile) return null;
+    const supabase = getSupabaseBrowserClient();
+    const extension = profilePhotoFile.name.split(".").pop() || "jpg";
+    const filePath = `${userId}/avatar-${Date.now()}.${extension}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("profile-media")
+      .upload(filePath, profilePhotoFile, {
+        upsert: false,
+        contentType: profilePhotoFile.type
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage.from("profile-media").getPublicUrl(filePath);
+    return data.publicUrl;
+  }
+
   async function onSaveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("");
@@ -88,7 +158,13 @@ export default function SettingsPage() {
       const cleanHandle = normalizeHandle(handle || user.email?.split("@")[0] || "user");
       const cleanName = normalizeName(name, cleanHandle);
       const cleanYoutube = youtubeAccount.trim() || null;
-      const cleanPhoto = profilePhotoUrl.trim() || null;
+      let cleanPhoto = profilePhotoUrl;
+
+      if (removeCurrentPhoto) {
+        cleanPhoto = null;
+      } else if (profilePhotoFile) {
+        cleanPhoto = await uploadProfilePhoto(user.id);
+      }
 
       const { data: updatedAccount, error: updateError } = await supabase
         .from("accounts")
@@ -262,15 +338,41 @@ export default function SettingsPage() {
             placeholder="@canal ou URL"
           />
 
-          <label htmlFor="settings-photo">Foto de perfil (URL)</label>
+          <label htmlFor="settings-photo-file">Foto de perfil (arquivo)</label>
           <input
-            id="settings-photo"
-            className="retro-input"
-            type="url"
-            value={profilePhotoUrl}
-            onChange={(event) => setProfilePhotoUrl(event.target.value)}
-            placeholder="https://..."
+            ref={photoInputRef}
+            id="settings-photo-file"
+            className="tw-file-input-hidden"
+            type="file"
+            accept="image/*"
+            onChange={onPhotoFileChange}
           />
+          <label
+            htmlFor="settings-photo-file"
+            className="tw-upload-box"
+            data-has-file={profilePhotoFile ? "true" : "false"}
+          >
+            <span className="tw-upload-title">
+              {profilePhotoFile ? "Nova foto selecionada" : "Selecionar foto de perfil"}
+            </span>
+            <span className="tw-upload-meta">
+              {profilePhotoFile
+                ? `${profilePhotoFile.name} (${formatBytes(profilePhotoFile.size)})`
+                : "Clique para escolher uma imagem"}
+            </span>
+          </label>
+
+          {profilePhotoPreviewUrl ? (
+            <img className="tw-profile-photo-preview" src={profilePhotoPreviewUrl} alt="Previa da foto" />
+          ) : (
+            <p className="retro-muted">Sem foto de perfil.</p>
+          )}
+
+          <div className="tw-inline-actions">
+            <button className="retro-button" type="button" onClick={removePhotoSelection}>
+              Remover foto atual
+            </button>
+          </div>
 
           <button className="retro-button primary" type="submit" disabled={isSaving}>
             {isSaving ? "Salvando..." : "Salvar perfil"}
