@@ -10,6 +10,8 @@ Base inicial de rede social privada, estilo Twitter, com:
 - upload de foto, video e gif (Supabase Storage)
 - perfil publico, editar perfil, follow/unfollow, block/unblock
 - sistema de moderadores para remover posts e promover/rebaixar usuarios
+- aba de live chat (`/live`) com modo overlay para OBS (`?overlay=1`)
+- moderacao obrigatoria de midia na live (imagem/video/gif entram como `pending`)
 
 ## Stack
 
@@ -36,9 +38,11 @@ Isso cria:
 - tabela `posts`
 - tabela `follows`
 - tabela `blocks`
+- tabela `live_messages` (chat de live com status `pending/approved/rejected`)
 - politicas RLS
 - bucket publico `post-media` com politicas de upload por pasta do usuario
 - bucket publico `profile-media` para upload de foto de perfil por arquivo
+- bucket publico `live-media` para midia enviada no chat da live
 
 ## 2) Configurar variaveis de ambiente
 
@@ -91,6 +95,9 @@ Nunca exponha essa chave no frontend.
 3. Em `/`, publica texto, foto, video ou gif no feed privado e ve recomendacoes.
 4. Em `/perfil/[handle]`, visualiza perfil e usa follow/block.
 5. Em `/configuracoes`, edita nome/foto/@, confirma email opcional e (se for mod) gerencia moderadores.
+6. Em `/live`, usa o chat de live e copia a URL de overlay para OBS:
+   - `https://seu-site/live?stream=handle&overlay=1`
+   - midia fica pendente e so aparece no overlay apos aprovacao de mod/dono da sala.
 
 ## Observacoes importantes
 

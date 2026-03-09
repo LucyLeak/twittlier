@@ -11,6 +11,7 @@ import {
   normalizeHandle,
   normalizeName
 } from "@/lib/account-utils";
+import { getSessionUserWithRetry } from "@/lib/session-utils";
 
 function formatDate(value: string | null) {
   if (!value) return "Nao confirmado";
@@ -58,14 +59,17 @@ export default function SettingsPage() {
 
   async function loadData() {
     const supabase = getSupabaseBrowserClient();
-    const { data, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !data.session?.user) {
+    const { user: sessionUser, error: sessionError } = await getSessionUserWithRetry(supabase);
+    if (!sessionUser) {
+      if (sessionError) {
+        throw sessionError;
+      }
       router.replace("/auth");
       return;
     }
 
-    setUser(data.session.user);
-    const ensured = await ensureAccountExists(supabase, getSeedFromUser(data.session.user));
+    setUser(sessionUser);
+    const ensured = await ensureAccountExists(supabase, getSeedFromUser(sessionUser));
     setAccount(ensured);
     fillFormFromAccount(ensured);
   }
@@ -85,6 +89,21 @@ export default function SettingsPage() {
 
     return () => {
       active = false;
+    };
+  }, [router]);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        router.replace("/auth");
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
     };
   }, [router]);
 
@@ -295,6 +314,9 @@ export default function SettingsPage() {
         <div className="tw-inline-actions">
           <button className="retro-button" type="button" onClick={() => router.push("/")}>
             Voltar ao feed
+          </button>
+          <button className="retro-button" type="button" onClick={() => router.push("/live")}>
+            Live
           </button>
           {account?.handle ? (
             <button

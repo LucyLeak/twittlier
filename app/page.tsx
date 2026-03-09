@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { AccountRow, ensureAccountExists, getSeedFromUser } from "@/lib/account-utils";
+import { getSessionUserWithRetry } from "@/lib/session-utils";
 
 type MediaType = "image" | "video" | "gif" | null;
 
@@ -19,7 +20,6 @@ type PostRecord = {
 };
 
 type TimelineMode = "for_you" | "following";
-const SESSION_BOOT_TIMEOUT_MS = 8000;
 
 function getAccountFromPost(post: PostRecord) {
   if (!post.accounts) return null;
@@ -64,29 +64,15 @@ export default function FeedPage() {
 
   async function ensureLoggedUser() {
     const supabase = getSupabaseBrowserClient();
-    try {
-      const sessionResult = (await Promise.race([
-        supabase.auth.getSession(),
-        new Promise((_, reject) => {
-          setTimeout(() => reject(new Error("SESSION_TIMEOUT")), SESSION_BOOT_TIMEOUT_MS);
-        })
-      ])) as Awaited<ReturnType<typeof supabase.auth.getSession>>;
-
-      const { data, error: sessionError } = sessionResult;
-      if (sessionError || !data.session?.user) {
-        router.replace("/auth");
-        return null;
+    const { user: sessionUser, error: sessionError } = await getSessionUserWithRetry(supabase);
+    if (!sessionUser) {
+      if (sessionError) {
+        setError(sessionError.message);
       }
-      return data.session.user;
-    } catch (caughtError) {
-      const messageText =
-        caughtError instanceof Error && caughtError.message === "SESSION_TIMEOUT"
-          ? "Sessao demorou para responder. Redirecionando para login."
-          : "Nao foi possivel validar a sessao.";
-      setError(messageText);
       router.replace("/auth");
       return null;
     }
+    return sessionUser;
   }
 
   async function refreshState(currentUserArg?: User, currentAccountArg?: AccountRow) {
@@ -163,17 +149,23 @@ export default function FeedPage() {
 
     const {
       data: { subscription }
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
-        if (!session?.user) {
+        if (event === "SIGNED_OUT") {
           router.replace("/auth");
+          return;
+        }
+
+        if (!session?.user || event === "INITIAL_SESSION") {
           return;
         }
 
         setUser(session.user);
         const ensuredAccount = await ensureAccountExists(supabase, getSeedFromUser(session.user));
         setCurrentAccount(ensuredAccount);
-        await refreshState(session.user, ensuredAccount);
+        if (event !== "TOKEN_REFRESHED") {
+          await refreshState(session.user, ensuredAccount);
+        }
       } catch (caughtError) {
         const messageText =
           caughtError instanceof Error
@@ -455,6 +447,9 @@ export default function FeedPage() {
                   Perfil
                 </button>
               ) : null}
+              <button className="retro-button" type="button" onClick={() => router.push("/live")}>
+                Live
+              </button>
               <button className="retro-button" type="button" onClick={() => router.push("/configuracoes")}>
                 Configuracoes
               </button>

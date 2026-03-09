@@ -9,6 +9,7 @@ import {
   normalizeHandle,
   normalizeName
 } from "@/lib/account-utils";
+import { getSessionUserWithRetry } from "@/lib/session-utils";
 
 type AuthMode = "login" | "signup";
 
@@ -90,17 +91,17 @@ export default function AuthPage() {
     const supabase = getSupabaseBrowserClient();
     let active = true;
 
-    supabase.auth.getSession().then(async ({ data, error: sessionError }) => {
+    getSessionUserWithRetry(supabase).then(async ({ user, error: sessionError }) => {
       if (!active) return;
       if (sessionError) {
         setError(sessionError.message);
         return;
       }
 
-      if (!data.session?.user) return;
+      if (!user) return;
 
       try {
-        await ensureAccountExists(supabase, getSeedFromUser(data.session.user));
+        await ensureAccountExists(supabase, getSeedFromUser(user));
         router.replace("/");
       } catch (caughtError) {
         const rawMessage = extractErrorMessage(caughtError, "Falha ao montar conta.");

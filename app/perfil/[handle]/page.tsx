@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { AccountRow, ensureAccountExists, getSeedFromUser, normalizeHandle } from "@/lib/account-utils";
+import { getSessionUserWithRetry } from "@/lib/session-utils";
 
 type MediaType = "image" | "video" | "gif" | null;
 
@@ -42,15 +43,18 @@ export default function ProfilePage() {
 
   async function loadData() {
     const supabase = getSupabaseBrowserClient();
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !sessionData.session?.user) {
+    const { user: sessionUser, error: sessionError } = await getSessionUserWithRetry(supabase);
+    if (!sessionUser) {
+      if (sessionError) {
+        throw sessionError;
+      }
       router.replace("/auth");
       return;
     }
 
-    setViewerUser(sessionData.session.user);
+    setViewerUser(sessionUser);
 
-    const ensuredViewer = await ensureAccountExists(supabase, getSeedFromUser(sessionData.session.user));
+    const ensuredViewer = await ensureAccountExists(supabase, getSeedFromUser(sessionUser));
     setViewerAccount(ensuredViewer);
 
     const { data: target, error: targetError } = await supabase
@@ -149,6 +153,21 @@ export default function ProfilePage() {
       active = false;
     };
   }, [routeHandle]);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        router.replace("/auth");
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [router]);
 
   async function toggleFollow() {
     if (!viewerAccount || !targetAccount || viewerAccount.user_id === targetAccount.user_id) return;
@@ -274,9 +293,20 @@ export default function ProfilePage() {
             {targetAccount?.name || "Perfil"}{" "}
             {targetAccount?.is_moderator ? <span className="tw-role-chip">MOD</span> : null}
           </h1>
-          <button className="retro-button" type="button" onClick={() => router.push("/")}>
-            Voltar ao feed
-          </button>
+          <div className="tw-inline-actions">
+            {targetAccount?.handle ? (
+              <button
+                className="retro-button"
+                type="button"
+                onClick={() => router.push(`/live?stream=${targetAccount.handle}`)}
+              >
+                Abrir live
+              </button>
+            ) : null}
+            <button className="retro-button" type="button" onClick={() => router.push("/")}>
+              Voltar ao feed
+            </button>
+          </div>
         </div>
 
         <div className="tw-profile-head">

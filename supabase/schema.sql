@@ -79,6 +79,29 @@ create table if not exists public.blocks (
   constraint blocks_not_self check (blocker_user_id <> blocked_user_id)
 );
 
+create table if not exists public.live_messages (
+  id uuid primary key default gen_random_uuid(),
+  room_owner_user_id uuid not null references public.accounts(user_id) on delete cascade,
+  author_user_id uuid not null references public.accounts(user_id) on delete cascade,
+  content text,
+  media_url text,
+  media_type text,
+  moderation_status text not null default 'approved',
+  moderation_reason text,
+  moderated_by_user_id uuid references public.accounts(user_id) on delete set null,
+  moderated_at timestamptz,
+  created_at timestamptz not null default now(),
+  constraint live_messages_media_type_valid check (
+    media_type in ('image', 'video', 'gif') or media_type is null
+  ),
+  constraint live_messages_content_or_media check (
+    (content is not null and length(trim(content)) > 0) or media_url is not null
+  ),
+  constraint live_messages_moderation_status_valid check (
+    moderation_status in ('pending', 'approved', 'rejected')
+  )
+);
+
 alter table if exists public.posts drop constraint if exists posts_user_id_fkey;
 alter table if exists public.posts
 add constraint posts_user_id_fkey
@@ -87,11 +110,14 @@ foreign key (user_id) references public.accounts(user_id) on delete cascade;
 create index if not exists posts_created_at_idx on public.posts(created_at desc);
 create index if not exists follows_following_user_idx on public.follows(following_user_id);
 create index if not exists blocks_blocked_user_idx on public.blocks(blocked_user_id);
+create index if not exists live_messages_room_created_idx on public.live_messages(room_owner_user_id, created_at);
+create index if not exists live_messages_status_idx on public.live_messages(moderation_status);
 
 alter table public.accounts enable row level security;
 alter table public.posts enable row level security;
 alter table public.follows enable row level security;
 alter table public.blocks enable row level security;
+alter table public.live_messages enable row level security;
 
 drop policy if exists "accounts_select_authenticated" on public.accounts;
 create policy "accounts_select_authenticated"
@@ -220,12 +246,99 @@ for delete
 to authenticated
 using (auth.uid() = blocker_user_id);
 
+drop policy if exists "live_messages_select_visible" on public.live_messages;
+create policy "live_messages_select_visible"
+on public.live_messages
+for select
+to authenticated
+using (
+  moderation_status = 'approved'
+  or author_user_id = auth.uid()
+  or room_owner_user_id = auth.uid()
+  or exists (
+    select 1
+    from public.accounts me
+    where me.user_id = auth.uid()
+      and me.is_moderator = true
+  )
+);
+
+drop policy if exists "live_messages_insert_own" on public.live_messages;
+create policy "live_messages_insert_own"
+on public.live_messages
+for insert
+to authenticated
+with check (
+  auth.uid() = author_user_id
+  and moderation_reason is null
+  and moderated_by_user_id is null
+  and moderated_at is null
+  and (
+    (media_url is null and moderation_status = 'approved')
+    or (media_url is not null and media_type is not null and moderation_status = 'pending')
+  )
+  and (
+    (content is not null and length(trim(content)) > 0)
+    or media_url is not null
+  )
+);
+
+drop policy if exists "live_messages_update_moderation" on public.live_messages;
+create policy "live_messages_update_moderation"
+on public.live_messages
+for update
+to authenticated
+using (
+  room_owner_user_id = auth.uid()
+  or exists (
+    select 1
+    from public.accounts me
+    where me.user_id = auth.uid()
+      and me.is_moderator = true
+  )
+)
+with check (
+  room_owner_user_id = auth.uid()
+  or exists (
+    select 1
+    from public.accounts me
+    where me.user_id = auth.uid()
+      and me.is_moderator = true
+  )
+);
+
+drop policy if exists "live_messages_delete_own" on public.live_messages;
+create policy "live_messages_delete_own"
+on public.live_messages
+for delete
+to authenticated
+using (auth.uid() = author_user_id);
+
+drop policy if exists "live_messages_delete_moderation" on public.live_messages;
+create policy "live_messages_delete_moderation"
+on public.live_messages
+for delete
+to authenticated
+using (
+  room_owner_user_id = auth.uid()
+  or exists (
+    select 1
+    from public.accounts me
+    where me.user_id = auth.uid()
+      and me.is_moderator = true
+  )
+);
+
 insert into storage.buckets (id, name, public)
 values ('post-media', 'post-media', true)
 on conflict (id) do nothing;
 
 insert into storage.buckets (id, name, public)
 values ('profile-media', 'profile-media', true)
+on conflict (id) do nothing;
+
+insert into storage.buckets (id, name, public)
+values ('live-media', 'live-media', true)
 on conflict (id) do nothing;
 
 drop policy if exists "post_media_read_authenticated" on storage.objects;
@@ -294,4 +407,46 @@ to authenticated
 using (
   bucket_id = 'profile-media'
   and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists "live_media_read_authenticated" on storage.objects;
+create policy "live_media_read_authenticated"
+on storage.objects
+for select
+to authenticated
+using (bucket_id = 'live-media');
+
+drop policy if exists "live_media_insert_own_folder" on storage.objects;
+create policy "live_media_insert_own_folder"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'live-media'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists "live_media_delete_own_folder" on storage.objects;
+create policy "live_media_delete_own_folder"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'live-media'
+  and (
+    (storage.foldername(name))[1] = auth.uid()::text
+    or exists (
+      select 1
+      from public.live_messages lm
+      where lm.room_owner_user_id = auth.uid()
+        and lm.media_url is not null
+        and position(name in lm.media_url) > 0
+    )
+    or exists (
+      select 1
+      from public.accounts me
+      where me.user_id = auth.uid()
+        and me.is_moderator = true
+    )
+  )
 );

@@ -474,6 +474,92 @@ a {
   font-weight: 700;
 }
 
+.tw-live-code {
+  display: inline-block;
+  max-width: 100%;
+  background: #efefef;
+  border: 1px solid #7a7a7a;
+  padding: 2px 4px;
+  overflow-wrap: anywhere;
+}
+
+.tw-live-feed {
+  display: grid;
+  gap: 8px;
+  max-height: 560px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.tw-live-pending-list {
+  display: grid;
+  gap: 8px;
+}
+
+.tw-live-message {
+  background: #efefef;
+  border-top: 2px solid #f9f9f9;
+  border-left: 2px solid #f9f9f9;
+  border-right: 2px solid #7c7c7c;
+  border-bottom: 2px solid #7c7c7c;
+  padding: 8px;
+}
+
+.tw-live-message.pending {
+  background: #ece6d2;
+}
+
+.tw-live-message.rejected {
+  background: #f1dddd;
+}
+
+.tw-live-message-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.tw-live-author {
+  color: #173f8f;
+}
+
+.tw-live-time {
+  color: #3b3b3b;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.tw-live-content {
+  margin: 0 0 6px;
+  white-space: pre-wrap;
+  line-height: 1.35;
+}
+
+.tw-live-media {
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border: 2px solid #6f6f6f;
+  background: #0a0a0a;
+}
+
+.tw-live-overlay {
+  min-height: 100vh;
+  padding: 10px;
+}
+
+.tw-live-overlay .tw-live-feed {
+  max-width: 700px;
+  margin: 0 auto;
+  max-height: none;
+}
+
+.tw-live-overlay .tw-live-message {
+  background: rgba(230, 230, 230, 0.9);
+}
+
 @media (max-width: 1100px) {
   .tw-layout-grid {
     grid-template-columns: 80px minmax(0, 1fr) 250px;
@@ -514,5 +600,9 @@ a {
 
   .tw-char-counter {
     grid-column: 2;
+  }
+
+  .tw-live-feed {
+    max-height: 420px;
   }
 }
