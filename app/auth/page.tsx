@@ -120,7 +120,7 @@ export default function AuthPage() {
 
         if (signUpError) throw signUpError;
 
-        if (data.user) {
+        if (data.user && data.session) {
           await ensureAccount(
             data.user.id,
             cleanName,
