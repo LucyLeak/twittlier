@@ -36,6 +36,34 @@ export function isSessionLockError(error: Error | AuthError | null) {
   );
 }
 
+async function waitForInitialAuthState(
+  supabase: SupabaseClient,
+  timeoutMs: number
+): Promise<SessionResult> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let subscription: { unsubscribe: () => void } | null = null;
+
+    const finish = (result: SessionResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
+      subscription?.unsubscribe();
+      resolve(result);
+    };
+
+    const timeoutId = setTimeout(() => {
+      finish({ user: null, error: null });
+    }, timeoutMs);
+
+    const listener = supabase.auth.onAuthStateChange((_event, session) => {
+      finish({ user: session?.user ?? null, error: null });
+    });
+
+    subscription = listener.data.subscription;
+  });
+}
+
 async function getSessionUserOnce(supabase: SupabaseClient): Promise<SessionResult> {
   let lastError: Error | null = null;
 
@@ -83,6 +111,17 @@ async function runSessionUserWithRetry(
     }
 
     await wait(delayMs);
+  }
+
+  if (!lastError || isSessionMissingError(lastError) || isSessionLockError(lastError)) {
+    const authStateResult = await waitForInitialAuthState(
+      supabase,
+      Math.max(900, delayMs * Math.max(2, retries) * 2)
+    );
+
+    if (authStateResult.user) {
+      return authStateResult;
+    }
   }
 
   return { user: null, error: lastError };

@@ -462,7 +462,7 @@ export default function FeedPage() {
           return;
         }
 
-        if (!session?.user || event === "INITIAL_SESSION") {
+        if (!session?.user) {
           return;
         }
 
