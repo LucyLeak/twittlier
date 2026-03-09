@@ -5,9 +5,11 @@ Base inicial de rede social privada, estilo Twitter, com:
 - barreira de acesso inicial por codigo privado
 - cadastro/login por email e senha (Supabase Auth)
 - confirmacao de email opcional em `Configuracoes` (manual)
-- feed com post de texto
+- timeline em layout de 3 colunas (menu, feed, recomendacoes)
+- feed com tabs `Para voce` e `Seguindo`
 - upload de foto, video e gif (Supabase Storage)
-- interface simples estilo anos 90
+- perfil publico, editar perfil, follow/unfollow, block/unblock
+- sistema de moderadores para remover posts e promover/rebaixar usuarios
 
 ## Stack
 
@@ -26,11 +28,14 @@ Base inicial de rede social privada, estilo Twitter, com:
 1. Abra o painel do Supabase.
 2. Va em `SQL Editor`.
 3. Execute o conteudo de `supabase/schema.sql`.
+4. Se ja tinha schema antigo, execute novamente para aplicar as novas tabelas/policies.
 
 Isso cria:
 
-- tabela `accounts` com `user_id`, `name`, `handle` (@), `youtube_account`, `profile_photo_url`, `email_verified_optional` e `email_verified_at`
+- tabela `accounts` com `user_id`, `name`, `handle` (@), `youtube_account`, `profile_photo_url`, `email_verified_optional`, `email_verified_at` e `is_moderator`
 - tabela `posts`
+- tabela `follows`
+- tabela `blocks`
 - politicas RLS
 - bucket publico `post-media` com politicas de upload por pasta do usuario
 
@@ -82,10 +87,19 @@ Nunca exponha essa chave no frontend.
 
 1. Usuario entra em `/acesso` e informa o codigo privado (`SITE_ACCESS_CODE`).
 2. Com acesso liberado, vai para `/auth` e cria conta ou faz login.
-3. Em `/`, publica texto, foto, video ou gif no feed privado.
-4. Se quiser, entra em `/configuracoes` e clica em `Confirmar email`.
+3. Em `/`, publica texto, foto, video ou gif no feed privado e ve recomendacoes.
+4. Em `/perfil/[handle]`, visualiza perfil e usa follow/block.
+5. Em `/configuracoes`, edita nome/foto/@, confirma email opcional e (se for mod) gerencia moderadores.
 
 ## Observacoes importantes
 
 - O botao `Confirmar email` marca confirmacao opcional em `accounts.email_verified_optional`.
+- Para definir o primeiro moderador, rode no SQL Editor:
+
+```sql
+update public.accounts
+set is_moderator = true
+where handle = 'seu_handle';
+```
+
 - Essa e a base inicial intencionalmente simples para evoluir nos proximos pedidos.

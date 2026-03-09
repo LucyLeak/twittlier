@@ -8,6 +8,7 @@ create table if not exists public.accounts (
   handle text not null,
   youtube_account text,
   profile_photo_url text,
+  is_moderator boolean not null default false,
   email_verified_optional boolean not null default false,
   email_verified_at timestamptz,
   created_at timestamptz not null default now(),
@@ -25,6 +26,9 @@ add column if not exists email_verified_optional boolean not null default false;
 
 alter table if exists public.accounts
 add column if not exists email_verified_at timestamptz;
+
+alter table if exists public.accounts
+add column if not exists is_moderator boolean not null default false;
 
 create unique index if not exists accounts_handle_unique_idx on public.accounts(handle);
 
@@ -59,15 +63,35 @@ create table if not exists public.posts (
   )
 );
 
+create table if not exists public.follows (
+  follower_user_id uuid not null references public.accounts(user_id) on delete cascade,
+  following_user_id uuid not null references public.accounts(user_id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (follower_user_id, following_user_id),
+  constraint follows_not_self check (follower_user_id <> following_user_id)
+);
+
+create table if not exists public.blocks (
+  blocker_user_id uuid not null references public.accounts(user_id) on delete cascade,
+  blocked_user_id uuid not null references public.accounts(user_id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker_user_id, blocked_user_id),
+  constraint blocks_not_self check (blocker_user_id <> blocked_user_id)
+);
+
 alter table if exists public.posts drop constraint if exists posts_user_id_fkey;
 alter table if exists public.posts
 add constraint posts_user_id_fkey
 foreign key (user_id) references public.accounts(user_id) on delete cascade;
 
 create index if not exists posts_created_at_idx on public.posts(created_at desc);
+create index if not exists follows_following_user_idx on public.follows(following_user_id);
+create index if not exists blocks_blocked_user_idx on public.blocks(blocked_user_id);
 
 alter table public.accounts enable row level security;
 alter table public.posts enable row level security;
+alter table public.follows enable row level security;
+alter table public.blocks enable row level security;
 
 drop policy if exists "accounts_select_authenticated" on public.accounts;
 create policy "accounts_select_authenticated"
@@ -91,6 +115,21 @@ to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
+drop policy if exists "accounts_update_by_moderator" on public.accounts;
+create policy "accounts_update_by_moderator"
+on public.accounts
+for update
+to authenticated
+using (
+  exists (
+    select 1
+    from public.accounts me
+    where me.user_id = auth.uid()
+      and me.is_moderator = true
+  )
+)
+with check (true);
+
 drop policy if exists "posts_select_authenticated" on public.posts;
 create policy "posts_select_authenticated"
 on public.posts
@@ -111,6 +150,75 @@ on public.posts
 for delete
 to authenticated
 using (auth.uid() = user_id);
+
+drop policy if exists "posts_delete_moderator" on public.posts;
+create policy "posts_delete_moderator"
+on public.posts
+for delete
+to authenticated
+using (
+  exists (
+    select 1
+    from public.accounts me
+    where me.user_id = auth.uid()
+      and me.is_moderator = true
+  )
+);
+
+drop policy if exists "follows_select_authenticated" on public.follows;
+create policy "follows_select_authenticated"
+on public.follows
+for select
+to authenticated
+using (true);
+
+drop policy if exists "follows_insert_own" on public.follows;
+create policy "follows_insert_own"
+on public.follows
+for insert
+to authenticated
+with check (
+  auth.uid() = follower_user_id
+  and follower_user_id <> following_user_id
+  and not exists (
+    select 1
+    from public.blocks b
+    where
+      (b.blocker_user_id = follower_user_id and b.blocked_user_id = following_user_id)
+      or (b.blocker_user_id = following_user_id and b.blocked_user_id = follower_user_id)
+  )
+);
+
+drop policy if exists "follows_delete_own" on public.follows;
+create policy "follows_delete_own"
+on public.follows
+for delete
+to authenticated
+using (auth.uid() = follower_user_id);
+
+drop policy if exists "blocks_select_authenticated" on public.blocks;
+create policy "blocks_select_authenticated"
+on public.blocks
+for select
+to authenticated
+using (true);
+
+drop policy if exists "blocks_insert_own" on public.blocks;
+create policy "blocks_insert_own"
+on public.blocks
+for insert
+to authenticated
+with check (
+  auth.uid() = blocker_user_id
+  and blocker_user_id <> blocked_user_id
+);
+
+drop policy if exists "blocks_delete_own" on public.blocks;
+create policy "blocks_delete_own"
+on public.blocks
+for delete
+to authenticated
+using (auth.uid() = blocker_user_id);
 
 insert into storage.buckets (id, name, public)
 values ('post-media', 'post-media', true)

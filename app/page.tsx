@@ -1,18 +1,12 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { AccountRow, ensureAccountExists, getSeedFromUser } from "@/lib/account-utils";
 
 type MediaType = "image" | "video" | "gif" | null;
-
-type AccountRecord = {
-  name: string;
-  handle: string;
-  youtube_account: string | null;
-  profile_photo_url: string | null;
-};
 
 type PostRecord = {
   id: string;
@@ -21,10 +15,12 @@ type PostRecord = {
   media_url: string | null;
   media_type: MediaType;
   created_at: string;
-  accounts: AccountRecord | AccountRecord[] | null;
+  accounts: AccountRow | AccountRow[] | null;
 };
 
-function getAccount(post: PostRecord) {
+type TimelineMode = "for_you" | "following";
+
+function getAccountFromPost(post: PostRecord) {
   if (!post.accounts) return null;
   if (Array.isArray(post.accounts)) return post.accounts[0] ?? null;
   return post.accounts;
@@ -39,54 +35,103 @@ function getMediaType(file: File): MediaType {
 
 export default function FeedPage() {
   const router = useRouter();
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [user, setUser] = useState<User | null>(null);
+  const [currentAccount, setCurrentAccount] = useState<AccountRow | null>(null);
   const [posts, setPosts] = useState<PostRecord[]>([]);
+  const [accountPool, setAccountPool] = useState<AccountRow[]>([]);
+  const [followingIds, setFollowingIds] = useState<string[]>([]);
+  const [blockedIds, setBlockedIds] = useState<string[]>([]);
+  const [blockedByIds, setBlockedByIds] = useState<string[]>([]);
+  const [timelineMode, setTimelineMode] = useState<TimelineMode>("for_you");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isActionLoading, setIsActionLoading] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [error, setError] = useState("");
   const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
 
-  async function loadPosts() {
-    const supabase = getSupabaseBrowserClient();
-    const { data, error: selectError } = await supabase
-      .from("posts")
-      .select(
-        "id, user_id, content, media_url, media_type, created_at, accounts(name, handle, youtube_account, profile_photo_url)"
-      )
-      .order("created_at", { ascending: false })
-      .limit(100);
-
-    if (selectError) {
-      setError(selectError.message);
-      return;
-    }
-
-    setPosts((data as PostRecord[]) ?? []);
-  }
-
-  async function ensureLogged() {
+  async function ensureLoggedUser() {
     const supabase = getSupabaseBrowserClient();
     const { data, error: sessionError } = await supabase.auth.getSession();
     if (sessionError || !data.session?.user) {
       router.replace("/auth");
       return null;
     }
-
     return data.session.user;
+  }
+
+  async function refreshState(currentUserArg?: User, currentAccountArg?: AccountRow) {
+    const supabase = getSupabaseBrowserClient();
+    const activeUser = currentUserArg ?? user;
+    const activeAccount = currentAccountArg ?? currentAccount;
+    if (!activeUser || !activeAccount) return;
+
+    const [postsRes, followsRes, blocksRes, blockedByRes, accountsRes] = await Promise.all([
+      supabase
+        .from("posts")
+        .select(
+          "id, user_id, content, media_url, media_type, created_at, accounts(user_id, name, handle, youtube_account, profile_photo_url, email_verified_optional, email_verified_at, is_moderator)"
+        )
+        .order("created_at", { ascending: false })
+        .limit(120),
+      supabase
+        .from("follows")
+        .select("following_user_id")
+        .eq("follower_user_id", activeAccount.user_id),
+      supabase
+        .from("blocks")
+        .select("blocked_user_id")
+        .eq("blocker_user_id", activeAccount.user_id),
+      supabase
+        .from("blocks")
+        .select("blocker_user_id")
+        .eq("blocked_user_id", activeAccount.user_id),
+      supabase
+        .from("accounts")
+        .select(
+          "user_id, name, handle, youtube_account, profile_photo_url, email_verified_optional, email_verified_at, is_moderator"
+        )
+        .limit(100)
+    ]);
+
+    if (postsRes.error) throw postsRes.error;
+    if (followsRes.error) throw followsRes.error;
+    if (blocksRes.error) throw blocksRes.error;
+    if (blockedByRes.error) throw blockedByRes.error;
+    if (accountsRes.error) throw accountsRes.error;
+
+    setPosts((postsRes.data as PostRecord[]) ?? []);
+    setFollowingIds((followsRes.data || []).map((item) => item.following_user_id));
+    setBlockedIds((blocksRes.data || []).map((item) => item.blocked_user_id));
+    setBlockedByIds((blockedByRes.data || []).map((item) => item.blocker_user_id));
+    setAccountPool((accountsRes.data as AccountRow[]) ?? []);
   }
 
   useEffect(() => {
     let active = true;
     const supabase = getSupabaseBrowserClient();
 
-    ensureLogged()
+    setIsLoading(true);
+    ensureLoggedUser()
       .then(async (currentUser) => {
         if (!active || !currentUser) return;
+
         setUser(currentUser);
-        await loadPosts();
+        const ensuredAccount = await ensureAccountExists(supabase, getSeedFromUser(currentUser));
+        if (!active) return;
+        setCurrentAccount(ensuredAccount);
+        await refreshState(currentUser, ensuredAccount);
+      })
+      .catch((caughtError) => {
+        if (!active) return;
+        const messageText =
+          caughtError instanceof Error ? caughtError.message : "Falha ao carregar timeline.";
+        setError(messageText);
       })
       .finally(() => {
         if (active) setIsLoading(false);
@@ -94,12 +139,16 @@ export default function FeedPage() {
 
     const {
       data: { subscription }
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!session?.user) {
         router.replace("/auth");
         return;
       }
+
       setUser(session.user);
+      const ensuredAccount = await ensureAccountExists(supabase, getSeedFromUser(session.user));
+      setCurrentAccount(ensuredAccount);
+      await refreshState(session.user, ensuredAccount);
     });
 
     return () => {
@@ -108,35 +157,81 @@ export default function FeedPage() {
     };
   }, [router]);
 
-  async function handleMediaUpload(currentUser: User) {
-    if (!file) return { mediaUrl: null as string | null, mediaType: null as MediaType };
-    const supabase = getSupabaseBrowserClient();
-
-    const mediaType = getMediaType(file);
-    if (!mediaType) {
-      throw new Error("Formato de midia nao suportado.");
+  useEffect(() => {
+    if (!file) {
+      setFilePreviewUrl("");
+      return;
     }
+    const url = URL.createObjectURL(file);
+    setFilePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
+  useEffect(() => {
+    if (!textareaRef.current) return;
+    textareaRef.current.style.height = "0px";
+    textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 220)}px`;
+  }, [text]);
+
+  const followingSet = useMemo(() => new Set(followingIds), [followingIds]);
+  const blockedSet = useMemo(() => new Set(blockedIds), [blockedIds]);
+  const blockedBySet = useMemo(() => new Set(blockedByIds), [blockedByIds]);
+
+  const visiblePosts = useMemo(() => {
+    return posts.filter((post) => !blockedSet.has(post.user_id) && !blockedBySet.has(post.user_id));
+  }, [posts, blockedSet, blockedBySet]);
+
+  const timelinePosts = useMemo(() => {
+    if (!currentAccount) return [];
+    if (timelineMode === "following") {
+      return visiblePosts.filter(
+        (post) => post.user_id === currentAccount.user_id || followingSet.has(post.user_id)
+      );
+    }
+    return visiblePosts;
+  }, [visiblePosts, timelineMode, currentAccount, followingSet]);
+
+  const suggestedAccounts = useMemo(() => {
+    if (!currentAccount) return [];
+    return accountPool
+      .filter((account) => account.user_id !== currentAccount.user_id)
+      .filter((account) => !followingSet.has(account.user_id))
+      .filter((account) => !blockedSet.has(account.user_id) && !blockedBySet.has(account.user_id))
+      .slice(0, 7);
+  }, [accountPool, currentAccount, followingSet, blockedSet, blockedBySet]);
+
+  const recommendedPosts = useMemo(() => {
+    if (!currentAccount) return [];
+    return visiblePosts
+      .filter((post) => post.user_id !== currentAccount.user_id && !followingSet.has(post.user_id))
+      .slice(0, 5);
+  }, [visiblePosts, followingSet, currentAccount]);
+
+  async function handleMediaUpload(activeUser: User) {
+    if (!file) return { mediaUrl: null as string | null, mediaType: null as MediaType };
+    const mediaType = getMediaType(file);
+    if (!mediaType) throw new Error("Formato de midia nao suportado.");
+
+    const supabase = getSupabaseBrowserClient();
     const extension = file.name.split(".").pop() || "bin";
-    const filePath = `${currentUser.id}/${crypto.randomUUID()}.${extension}`;
+    const filePath = `${activeUser.id}/${crypto.randomUUID()}.${extension}`;
 
     const { error: uploadError } = await supabase.storage
       .from("post-media")
       .upload(filePath, file, { upsert: false });
-
     if (uploadError) throw uploadError;
 
     const { data } = supabase.storage.from("post-media").getPublicUrl(filePath);
     return { mediaUrl: data.publicUrl, mediaType };
   }
 
-  async function onPublish(event: FormEvent<HTMLFormElement>) {
+  async function publishPost(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setStatus("");
 
-    const currentUser = await ensureLogged();
-    if (!currentUser) return;
+    const activeUser = await ensureLoggedUser();
+    if (!activeUser || !currentAccount) return;
 
     const cleanText = text.trim();
     if (!cleanText && !file) {
@@ -147,20 +242,21 @@ export default function FeedPage() {
     setIsPublishing(true);
     try {
       const supabase = getSupabaseBrowserClient();
-      const { mediaUrl, mediaType } = await handleMediaUpload(currentUser);
+      const { mediaUrl, mediaType } = await handleMediaUpload(activeUser);
+
       const { error: insertError } = await supabase.from("posts").insert({
-        user_id: currentUser.id,
+        user_id: currentAccount.user_id,
         content: cleanText || null,
         media_url: mediaUrl,
         media_type: mediaType
       });
-
       if (insertError) throw insertError;
 
       setText("");
       setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
       setStatus("Post publicado.");
-      await loadPosts();
+      await refreshState(activeUser, currentAccount);
     } catch (caughtError) {
       const messageText =
         caughtError instanceof Error ? caughtError.message : "Erro ao publicar.";
@@ -172,6 +268,108 @@ export default function FeedPage() {
 
   function onFileChange(event: ChangeEvent<HTMLInputElement>) {
     setFile(event.target.files?.[0] ?? null);
+  }
+
+  async function toggleFollow(targetUserId: string, handle: string) {
+    if (!currentAccount || targetUserId === currentAccount.user_id) return;
+    setError("");
+    setStatus("");
+    setIsActionLoading(true);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const alreadyFollowing = followingSet.has(targetUserId);
+      if (alreadyFollowing) {
+        const { error: deleteError } = await supabase
+          .from("follows")
+          .delete()
+          .eq("follower_user_id", currentAccount.user_id)
+          .eq("following_user_id", targetUserId);
+        if (deleteError) throw deleteError;
+        setStatus(`Voce deixou de seguir @${handle}.`);
+      } else {
+        const { error: insertError } = await supabase.from("follows").insert({
+          follower_user_id: currentAccount.user_id,
+          following_user_id: targetUserId
+        });
+        if (insertError) throw insertError;
+        setStatus(`Voce agora segue @${handle}.`);
+      }
+      await refreshState(user || undefined, currentAccount);
+    } catch (caughtError) {
+      const messageText =
+        caughtError instanceof Error ? caughtError.message : "Falha no follow.";
+      setError(messageText);
+    } finally {
+      setIsActionLoading(false);
+    }
+  }
+
+  async function toggleBlock(targetUserId: string, handle: string) {
+    if (!currentAccount || targetUserId === currentAccount.user_id) return;
+    setError("");
+    setStatus("");
+    setIsActionLoading(true);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const alreadyBlocked = blockedSet.has(targetUserId);
+      if (alreadyBlocked) {
+        const { error: deleteError } = await supabase
+          .from("blocks")
+          .delete()
+          .eq("blocker_user_id", currentAccount.user_id)
+          .eq("blocked_user_id", targetUserId);
+        if (deleteError) throw deleteError;
+        setStatus(`@${handle} desbloqueado.`);
+      } else {
+        const { error: insertError } = await supabase.from("blocks").insert({
+          blocker_user_id: currentAccount.user_id,
+          blocked_user_id: targetUserId
+        });
+        if (insertError) throw insertError;
+
+        const { error: cleanupForwardError } = await supabase
+          .from("follows")
+          .delete()
+          .eq("follower_user_id", currentAccount.user_id)
+          .eq("following_user_id", targetUserId);
+        if (cleanupForwardError) throw cleanupForwardError;
+
+        const { error: cleanupReverseError } = await supabase
+          .from("follows")
+          .delete()
+          .eq("follower_user_id", targetUserId)
+          .eq("following_user_id", currentAccount.user_id);
+        if (cleanupReverseError) throw cleanupReverseError;
+        setStatus(`@${handle} bloqueado.`);
+      }
+      await refreshState(user || undefined, currentAccount);
+    } catch (caughtError) {
+      const messageText =
+        caughtError instanceof Error ? caughtError.message : "Falha no bloqueio.";
+      setError(messageText);
+    } finally {
+      setIsActionLoading(false);
+    }
+  }
+
+  async function deletePost(postId: string) {
+    if (!currentAccount) return;
+    setError("");
+    setStatus("");
+    setIsActionLoading(true);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: deleteError } = await supabase.from("posts").delete().eq("id", postId);
+      if (deleteError) throw deleteError;
+      setStatus("Post removido.");
+      await refreshState(user || undefined, currentAccount);
+    } catch (caughtError) {
+      const messageText =
+        caughtError instanceof Error ? caughtError.message : "Nao foi possivel remover o post.";
+      setError(messageText);
+    } finally {
+      setIsActionLoading(false);
+    }
   }
 
   async function signOut() {
@@ -189,105 +387,251 @@ export default function FeedPage() {
 
   if (isLoading) {
     return (
-      <main className="retro-page">
-        <section className="retro-window">
-          <h1 className="retro-title">Twittlier :: carregando</h1>
-          <p>Validando sessao...</p>
+      <main className="tw-page-shell">
+        <section className="tw-card">
+          <h1 className="tw-section-title">Twittlier</h1>
+          <p>Carregando timeline...</p>
         </section>
       </main>
     );
   }
 
   return (
-    <main className="retro-page">
-      <section className="retro-window">
-        <h1 className="retro-title">Twittlier :: feed privado</h1>
-        <div className="retro-row">
-          <span className="retro-muted">Logado como: {user?.email}</span>
-          <button className="retro-button" type="button" onClick={() => router.push("/configuracoes")}>
-            Configuracoes
-          </button>
-          <button className="retro-button" type="button" onClick={signOut}>
-            Sair da conta
-          </button>
-          <button className="retro-button danger" type="button" onClick={lockApp}>
-            Travar acesso
-          </button>
-        </div>
-      </section>
+    <main className="tw-page-shell">
+      <div className="tw-layout-grid">
+        <aside className="tw-left-column">
+          <section className="tw-card tw-sticky">
+            <h1 className="tw-brand">Twittlier</h1>
+            <p className="tw-handle-label">@{currentAccount?.handle || "usuario"}</p>
+            <div className="tw-menu">
+              <button className="retro-button" type="button" onClick={() => router.push("/")}>
+                Home
+              </button>
+              {currentAccount?.handle ? (
+                <button
+                  className="retro-button"
+                  type="button"
+                  onClick={() => router.push(`/perfil/${currentAccount.handle}`)}
+                >
+                  Perfil
+                </button>
+              ) : null}
+              <button className="retro-button" type="button" onClick={() => router.push("/configuracoes")}>
+                Configuracoes
+              </button>
+              <button className="retro-button" type="button" onClick={signOut}>
+                Sair
+              </button>
+              <button className="retro-button danger" type="button" onClick={lockApp}>
+                Travar
+              </button>
+            </div>
+            <p className="retro-muted">Logado: {user?.email || "sem email"}</p>
+          </section>
+        </aside>
 
-      <section className="retro-window">
-        <h2 className="retro-title">Novo post</h2>
-        <form className="retro-form" onSubmit={onPublish}>
-          <textarea
-            className="retro-textarea"
-            placeholder="O que voce quer publicar hoje?"
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-          />
-          <input
-            className="retro-file"
-            type="file"
-            accept="image/*,video/*,.gif"
-            onChange={onFileChange}
-          />
-          <p className="retro-muted">Aceita texto, foto, video e gif.</p>
-          {status ? <p className="retro-muted">{status}</p> : null}
-          {error ? <p className="retro-error">{error}</p> : null}
-          <button className="retro-button primary" disabled={isPublishing} type="submit">
-            {isPublishing ? "Publicando..." : "Publicar"}
-          </button>
-        </form>
-      </section>
+        <section className="tw-main-column">
+          <section className="tw-card tw-composer-card">
+            <h2 className="tw-section-title">Publicar</h2>
+            <form className="retro-form" onSubmit={publishPost}>
+              <textarea
+                ref={textareaRef}
+                className="tw-composer-input"
+                placeholder="O que esta acontecendo?"
+                value={text}
+                onChange={(event) => setText(event.target.value)}
+              />
+              <div className="tw-composer-toolbar">
+                <input
+                  ref={fileInputRef}
+                  className="retro-file"
+                  type="file"
+                  accept="image/*,video/*,.gif"
+                  onChange={onFileChange}
+                />
+                <span className="retro-muted">{text.length}/280</span>
+              </div>
+              {filePreviewUrl ? (
+                file?.type.startsWith("video/") ? (
+                  <video className="tw-composer-preview" src={filePreviewUrl} controls />
+                ) : (
+                  <img className="tw-composer-preview" src={filePreviewUrl} alt="Previa da midia" />
+                )
+              ) : null}
+              <button className="retro-button primary tw-publish-button" type="submit" disabled={isPublishing}>
+                {isPublishing ? "Publicando..." : "Postar"}
+              </button>
+            </form>
+            {status ? <p className="retro-muted">{status}</p> : null}
+            {error ? <p className="retro-error">{error}</p> : null}
+          </section>
 
-      <section className="retro-window">
-        <h2 className="retro-title">Timeline</h2>
-        <div className="feed-list">
-          {posts.length === 0 ? (
-            <p className="retro-muted">Sem posts ainda. Crie o primeiro.</p>
-          ) : (
-            posts.map((post) => {
-              const account = getAccount(post);
-              const nameLabel = account?.name || "Anon";
-              const handleLabel = account?.handle || "anon";
-              const avatarSource = account?.profile_photo_url || "";
-              const youtubeLabel = account?.youtube_account || "";
-              const avatarFallback = nameLabel.slice(0, 1).toUpperCase();
+          <section className="tw-card">
+            <div className="tw-feed-tabs">
+              <button
+                className="retro-button"
+                data-active={timelineMode === "for_you"}
+                type="button"
+                onClick={() => setTimelineMode("for_you")}
+              >
+                Para voce
+              </button>
+              <button
+                className="retro-button"
+                data-active={timelineMode === "following"}
+                type="button"
+                onClick={() => setTimelineMode("following")}
+              >
+                Seguindo
+              </button>
+            </div>
 
-              return (
-                <article className="post-card" key={post.id}>
-                  <div className="post-head">
-                    <div className="post-user-wrap">
-                      {avatarSource ? (
-                        <img className="post-avatar" src={avatarSource} alt={`Foto de ${nameLabel}`} />
-                      ) : (
-                        <div className="post-avatar fallback">{avatarFallback}</div>
-                      )}
-                      <div>
-                        <div className="post-user">{nameLabel}</div>
-                        <div className="post-handle">@{handleLabel}</div>
-                        {youtubeLabel ? (
-                          <div className="post-youtube">YouTube: {youtubeLabel}</div>
+            <div className="tw-feed-list">
+              {timelinePosts.length === 0 ? (
+                <p className="retro-muted">Sem posts para mostrar.</p>
+              ) : (
+                timelinePosts.map((post) => {
+                  const author = getAccountFromPost(post);
+                  const isOwnPost = currentAccount?.user_id === post.user_id;
+                  const isFollowingAuthor = followingSet.has(post.user_id);
+                  const isBlockedAuthor = blockedSet.has(post.user_id);
+                  const canDelete = Boolean(isOwnPost || currentAccount?.is_moderator);
+
+                  return (
+                    <article className="tw-post-card" key={post.id}>
+                      <div className="tw-post-header">
+                        <div className="tw-post-author">
+                          {author?.profile_photo_url ? (
+                            <img className="tw-avatar" src={author.profile_photo_url} alt={`Foto de ${author.name}`} />
+                          ) : (
+                            <div className="tw-avatar fallback">
+                              {(author?.name || "?").slice(0, 1).toUpperCase()}
+                            </div>
+                          )}
+                          <div>
+                            <div className="tw-post-name">
+                              {author?.name || "Anon"}
+                              {author?.is_moderator ? <span className="tw-role-chip">MOD</span> : null}
+                            </div>
+                            <div className="tw-post-handle">@{author?.handle || "anon"}</div>
+                          </div>
+                        </div>
+                        <time className="post-time">{new Date(post.created_at).toLocaleString("pt-BR")}</time>
+                      </div>
+
+                      {post.content ? <p className="post-text">{post.content}</p> : null}
+                      {post.media_url && post.media_type === "video" ? (
+                        <video className="tw-post-media" src={post.media_url} controls />
+                      ) : null}
+                      {post.media_url && post.media_type !== "video" ? (
+                        <img className="tw-post-media" src={post.media_url} alt="Midia do post" />
+                      ) : null}
+
+                      <div className="tw-post-actions">
+                        {author?.handle ? (
+                          <button
+                            className="retro-button tw-small-button"
+                            type="button"
+                            onClick={() => router.push(`/perfil/${author.handle}`)}
+                          >
+                            Ver perfil
+                          </button>
+                        ) : null}
+                        {!isOwnPost && author ? (
+                          <>
+                            <button
+                              className="retro-button tw-small-button"
+                              type="button"
+                              disabled={isActionLoading || blockedBySet.has(author.user_id)}
+                              onClick={() => toggleFollow(author.user_id, author.handle)}
+                            >
+                              {isFollowingAuthor ? "Unfollow" : "Follow"}
+                            </button>
+                            <button
+                              className="retro-button danger tw-small-button"
+                              type="button"
+                              disabled={isActionLoading}
+                              onClick={() => toggleBlock(author.user_id, author.handle)}
+                            >
+                              {isBlockedAuthor ? "Unblock" : "Block"}
+                            </button>
+                          </>
+                        ) : null}
+                        {canDelete ? (
+                          <button
+                            className="retro-button danger tw-small-button"
+                            type="button"
+                            disabled={isActionLoading}
+                            onClick={() => deletePost(post.id)}
+                          >
+                            Remover
+                          </button>
                         ) : null}
                       </div>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </section>
+        </section>
+
+        <aside className="tw-right-column">
+          <section className="tw-card tw-sticky">
+            <h2 className="tw-section-title">Recomendacoes</h2>
+            <h3 className="tw-subtitle">Perfis sugeridos</h3>
+            <div className="tw-suggestion-list">
+              {suggestedAccounts.length === 0 ? (
+                <p className="retro-muted">Sem sugestoes no momento.</p>
+              ) : (
+                suggestedAccounts.map((item) => (
+                  <div className="tw-suggestion-item" key={item.user_id}>
+                    <button
+                      className="tw-link-button"
+                      type="button"
+                      onClick={() => router.push(`/perfil/${item.handle}`)}
+                    >
+                      @{item.handle}
+                    </button>
+                    <div className="tw-inline-actions">
+                      <button
+                        className="retro-button tw-small-button"
+                        type="button"
+                        disabled={isActionLoading}
+                        onClick={() => toggleFollow(item.user_id, item.handle)}
+                      >
+                        {followingSet.has(item.user_id) ? "Unfollow" : "Follow"}
+                      </button>
                     </div>
-                    <time className="post-time">
-                      {new Date(post.created_at).toLocaleString("pt-BR")}
-                    </time>
                   </div>
-                  {post.content ? <p className="post-text">{post.content}</p> : null}
-                  {post.media_url && post.media_type === "video" ? (
-                    <video className="post-media" src={post.media_url} controls />
-                  ) : null}
-                  {post.media_url && post.media_type !== "video" ? (
-                    <img className="post-media" src={post.media_url} alt="Midia do post" />
-                  ) : null}
-                </article>
-              );
-            })
-          )}
-        </div>
-      </section>
+                ))
+              )}
+            </div>
+
+            <h3 className="tw-subtitle">Posts recomendados</h3>
+            <div className="tw-recommended-posts">
+              {recommendedPosts.length === 0 ? (
+                <p className="retro-muted">Sem recomendacoes agora.</p>
+              ) : (
+                recommendedPosts.map((post) => {
+                  const author = getAccountFromPost(post);
+                  return (
+                    <button
+                      className="tw-recommended-item"
+                      key={post.id}
+                      type="button"
+                      onClick={() => router.push(author?.handle ? `/perfil/${author.handle}` : "/")}
+                    >
+                      <strong>@{author?.handle || "anon"}</strong>
+                      <span>{(post.content || "Midia").slice(0, 82)}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </section>
+        </aside>
+      </div>
     </main>
   );
 }
