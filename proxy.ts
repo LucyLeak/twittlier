@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ACCESS_COOKIE_NAME, getAccessSecret, isAccessCookieValid } from "@/lib/access-cookie";
 
-const ACCESS_COOKIE = "tw_private_access";
-
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const hasAccess = request.cookies.get(ACCESS_COOKIE)?.value === "ok";
+  const accessSecret = getAccessSecret();
+  const accessCookie = request.cookies.get(ACCESS_COOKIE_NAME)?.value;
+  const hasAccess = accessSecret ? await isAccessCookieValid(accessCookie, accessSecret) : false;
   const searchParams = request.nextUrl.searchParams;
-  const expectedOverlayKey =
-    process.env.OBS_OVERLAY_KEY ?? process.env.NEXT_PUBLIC_OBS_OVERLAY_KEY;
+  const expectedOverlayKey = process.env.OBS_OVERLAY_KEY;
   const suppliedOverlayKey = searchParams.get("key");
   const hasValidOverlayKey =
     Boolean(expectedOverlayKey) && suppliedOverlayKey === expectedOverlayKey;

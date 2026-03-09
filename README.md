@@ -53,8 +53,8 @@ NEXT_PUBLIC_SUPABASE_URL=https://SEU-PROJETO.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=SUA_SUPABASE_PUBLISHABLE_KEY
 SUPABASE_SERVICE_ROLE_KEY=SUA_SUPABASE_SERVICE_ROLE_KEY
 SITE_ACCESS_CODE=seu-codigo-privado
+ACCESS_COOKIE_SECRET=seu-segredo-longo-e-unico
 OBS_OVERLAY_KEY=sua-chave-overlay-obs
-NEXT_PUBLIC_OBS_OVERLAY_KEY=sua-chave-overlay-obs
 ```
 
 Compatibilidade: `NEXT_PUBLIC_SUPABASE_ANON_KEY` tambem funciona (legado).
@@ -89,6 +89,7 @@ Se quiser confirmar depois, pode usar o botao em `/configuracoes`.
 Observacao: o cadastro usa rota server-side (`/api/auth/register`) com
 `SUPABASE_SERVICE_ROLE_KEY` para criar usuario ja confirmado.
 Nunca exponha essa chave no frontend.
+Defina `ACCESS_COOKIE_SECRET` com valor forte para assinar o cookie de acesso privado.
 
 ## Fluxo atual do app
 

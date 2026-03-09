@@ -28,7 +28,7 @@ function getAdminClient() {
 }
 
 function getExpectedOverlayKey() {
-  return process.env.OBS_OVERLAY_KEY ?? process.env.NEXT_PUBLIC_OBS_OVERLAY_KEY ?? "";
+  return process.env.OBS_OVERLAY_KEY ?? "";
 }
 
 export async function GET(request: Request) {
@@ -128,4 +128,3 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: messageText }, { status: 500 });
   }
 }
-

@@ -26,7 +26,6 @@ type LiveMessage = {
 };
 
 const LIVE_POLL_MS = 3200;
-const DEFAULT_OVERLAY_KEY = process.env.NEXT_PUBLIC_OBS_OVERLAY_KEY ?? "";
 const OVERLAY_MAX_MESSAGES = 5;
 
 type OverlayApiMessage = {
@@ -114,9 +113,7 @@ export default function LivePage() {
 
   const embedUrl = useMemo(() => {
     if (!origin || !roomOwnerAccount) return "";
-    const base = `${origin}/live?stream=${roomOwnerAccount.handle}&overlay=1`;
-    if (!DEFAULT_OVERLAY_KEY) return base;
-    return `${base}&key=${encodeURIComponent(DEFAULT_OVERLAY_KEY)}`;
+    return `${origin}/live?stream=${roomOwnerAccount.handle}&overlay=1&key=SUA_CHAVE_OVERLAY`;
   }, [origin, roomOwnerAccount]);
 
   async function loadOverlayMessages(streamHandle: string, key: string) {
@@ -591,11 +588,9 @@ export default function LivePage() {
           URL para OBS overlay:{" "}
           <code className="tw-live-code">{embedUrl || "carregando..."}</code>
         </p>
-        {!DEFAULT_OVERLAY_KEY ? (
-          <p className="retro-error">
-            Defina NEXT_PUBLIC_OBS_OVERLAY_KEY e OBS_OVERLAY_KEY para usar overlay sem login.
-          </p>
-        ) : null}
+        <p className="retro-muted">
+          Substitua <code>SUA_CHAVE_OVERLAY</code> pela chave privada <code>OBS_OVERLAY_KEY</code>.
+        </p>
       </section>
 
       <section className="tw-card">

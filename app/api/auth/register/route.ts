@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  ACCESS_COOKIE_NAME,
+  getAccessSecret,
+  getCookieValueFromHeader,
+  isAccessCookieValid
+} from "@/lib/access-cookie";
+import { checkRateLimit, getRequestIdentifier } from "@/lib/rate-limit";
 
 type RegisterBody = {
   email?: string;
@@ -31,6 +38,43 @@ function isValidEmail(value: string) {
 
 export async function POST(request: Request) {
   try {
+    const accessSecret = getAccessSecret();
+    if (!accessSecret) {
+      return NextResponse.json(
+        { error: "Configuracao de acesso nao encontrada no servidor." },
+        { status: 500 }
+      );
+    }
+
+    const requester = getRequestIdentifier(request);
+    const rateLimit = checkRateLimit({
+      scope: "auth-register",
+      key: requester,
+      limit: 5,
+      windowMs: 60 * 60 * 1000
+    });
+
+    if (rateLimit.limited) {
+      return NextResponse.json(
+        { error: "Muitas tentativas de cadastro. Aguarde para tentar de novo." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfterSeconds)
+          }
+        }
+      );
+    }
+
+    const accessCookieValue = getCookieValueFromHeader(
+      request.headers.get("cookie"),
+      ACCESS_COOKIE_NAME
+    );
+    const hasPrivateAccess = await isAccessCookieValid(accessCookieValue, accessSecret);
+    if (!hasPrivateAccess) {
+      return NextResponse.json({ error: "Acesso privado invalido." }, { status: 403 });
+    }
+
     const body = (await request.json().catch(() => null)) as RegisterBody | null;
     const email = body?.email?.trim().toLowerCase();
     const password = body?.password?.trim();
