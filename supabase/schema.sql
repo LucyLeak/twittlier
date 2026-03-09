@@ -8,6 +8,8 @@ create table if not exists public.accounts (
   handle text not null,
   youtube_account text,
   profile_photo_url text,
+  email_verified_optional boolean not null default false,
+  email_verified_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint accounts_handle_format check (
@@ -17,6 +19,12 @@ create table if not exists public.accounts (
     profile_photo_url is null or profile_photo_url ~* '^https?://'
   )
 );
+
+alter table if exists public.accounts
+add column if not exists email_verified_optional boolean not null default false;
+
+alter table if exists public.accounts
+add column if not exists email_verified_at timestamptz;
 
 create unique index if not exists accounts_handle_unique_idx on public.accounts(handle);
 

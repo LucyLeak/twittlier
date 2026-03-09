@@ -204,6 +204,9 @@ export default function FeedPage() {
         <h1 className="retro-title">Twittlier :: feed privado</h1>
         <div className="retro-row">
           <span className="retro-muted">Logado como: {user?.email}</span>
+          <button className="retro-button" type="button" onClick={() => router.push("/configuracoes")}>
+            Configuracoes
+          </button>
           <button className="retro-button" type="button" onClick={signOut}>
             Sair da conta
           </button>

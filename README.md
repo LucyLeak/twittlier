@@ -3,7 +3,8 @@
 Base inicial de rede social privada, estilo Twitter, com:
 
 - barreira de acesso inicial por codigo privado
-- login de usuario com Google (Supabase Auth)
+- cadastro/login por email e senha (Supabase Auth)
+- confirmacao de email opcional em `Configuracoes` (manual)
 - feed com post de texto
 - upload de foto, video e gif (Supabase Storage)
 - interface simples estilo anos 90
@@ -28,7 +29,7 @@ Base inicial de rede social privada, estilo Twitter, com:
 
 Isso cria:
 
-- tabela `accounts` com `user_id`, `name`, `handle` (@), `youtube_account` e `profile_photo_url`
+- tabela `accounts` com `user_id`, `name`, `handle` (@), `youtube_account`, `profile_photo_url`, `email_verified_optional` e `email_verified_at`
 - tabela `posts`
 - politicas RLS
 - bucket publico `post-media` com politicas de upload por pasta do usuario
@@ -40,27 +41,16 @@ Copie `.env.example` para `.env.local` e preencha:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://SEU-PROJETO.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=SUA_SUPABASE_PUBLISHABLE_KEY
-NEXT_PUBLIC_SITE_URL=https://seu-app.vercel.app
 SITE_ACCESS_CODE=seu-codigo-privado
 ```
 
 Compatibilidade: `NEXT_PUBLIC_SUPABASE_ANON_KEY` tambem funciona (legado).
-`NEXT_PUBLIC_SITE_URL` e recomendado para redirect do login OAuth.
 
 ### No Vercel
 
 No projeto da Vercel, adicione as mesmas variaveis em:
 
 - `Settings` -> `Environment Variables`
-
-## 2.1) Configurar URL de autenticacao no Supabase
-
-Em `Supabase > Authentication > URL Configuration`:
-
-- `Site URL`: coloque seu dominio de producao (ex.: `https://seu-app.vercel.app`)
-- `Redirect URLs`: inclua:
-  - `https://seu-app.vercel.app/auth`
-  - `http://localhost:3000/auth` (para desenvolvimento local)
 
 ## 3) Rodar localmente
 
@@ -73,14 +63,24 @@ Acesse:
 
 - `http://localhost:3000/acesso` para passar pelo login privado inicial.
 
+## 4) Auth sem confirmacao obrigatoria
+
+Em `Supabase > Authentication > Providers > Email`:
+
+- deixe `Email` habilitado
+- desative `Confirm email`
+
+Com isso, a pessoa cadastra e entra direto sem validar email.
+Se quiser confirmar depois, pode usar o botao em `/configuracoes`.
+
 ## Fluxo atual do app
 
 1. Usuario entra em `/acesso` e informa o codigo privado (`SITE_ACCESS_CODE`).
-2. Com acesso liberado, vai para `/auth` e faz login com Google.
+2. Com acesso liberado, vai para `/auth` e cria conta ou faz login.
 3. Em `/`, publica texto, foto, video ou gif no feed privado.
+4. Se quiser, entra em `/configuracoes` e clica em `Confirmar email`.
 
 ## Observacoes importantes
 
-- Em `Supabase > Authentication > Providers > Google`, habilite Google OAuth.
-- Em `Supabase > Authentication > Providers > Google`, use callback URL do Supabase no console do Google.
+- O botao `Confirmar email` envia um link para o email e marca confirmacao opcional em `accounts.email_verified_optional`.
 - Essa e a base inicial intencionalmente simples para evoluir nos proximos pedidos.

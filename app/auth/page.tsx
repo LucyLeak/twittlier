@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+
+type AuthMode = "login" | "signup";
 
 function normalizeHandle(source: string) {
   const base = source.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 24);
@@ -17,26 +19,19 @@ function normalizeName(source: string, fallbackHandle: string) {
   return fallbackHandle;
 }
 
-function getAuthRedirectUrl() {
-  if (typeof window !== "undefined") {
-    return `${window.location.origin}/auth`;
-  }
-
-  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (configuredSiteUrl) {
-    return `${configuredSiteUrl.replace(/\/+$/, "")}/auth`;
-  }
-
-  return undefined;
-}
-
 export default function AuthPage() {
   const router = useRouter();
 
-  const [isCheckingSession, setIsCheckingSession] = useState(true);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [mode, setMode] = useState<AuthMode>("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [handle, setHandle] = useState("");
+  const [youtubeAccount, setYoutubeAccount] = useState("");
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   async function ensureAccount(
     userId: string,
@@ -79,22 +74,22 @@ export default function AuthPage() {
     throw new Error("Nao foi possivel reservar um @ unico para a conta.");
   }
 
-  async function ensureAccountFromUser(user: User) {
+  async function ensureAccountFromUser(user: User, fallbackEmail?: string) {
     const metadata = user.user_metadata ?? {};
-    const fallbackEmailName = user.email?.split("@")[0] || "usuario";
+    const fallbackEmailName = user.email?.split("@")[0] || fallbackEmail?.split("@")[0] || "user";
 
     const candidateHandle =
-      typeof metadata.user_name === "string"
-        ? metadata.user_name
-        : typeof metadata.preferred_username === "string"
-          ? metadata.preferred_username
+      typeof metadata.handle === "string"
+        ? metadata.handle
+        : typeof metadata.user_name === "string"
+          ? metadata.user_name
           : fallbackEmailName;
 
     const candidateName =
-      typeof metadata.full_name === "string"
-        ? metadata.full_name
-        : typeof metadata.name === "string"
-          ? metadata.name
+      typeof metadata.name === "string"
+        ? metadata.name
+        : typeof metadata.full_name === "string"
+          ? metadata.full_name
           : fallbackEmailName;
 
     const candidateYoutube =
@@ -120,116 +115,192 @@ export default function AuthPage() {
     const supabase = getSupabaseBrowserClient();
     let active = true;
 
-    supabase.auth
-      .getSession()
-      .then(async ({ data, error: sessionError }) => {
-        if (!active) return;
-
-        if (sessionError) {
-          setError(sessionError.message);
-          return;
-        }
-
-        if (!data.session?.user) {
-          return;
-        }
-
-        try {
-          await ensureAccountFromUser(data.session.user);
-          router.replace("/");
-        } catch (caughtError) {
-          const messageText =
-            caughtError instanceof Error ? caughtError.message : "Falha ao montar conta.";
-          setError(messageText);
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setIsCheckingSession(false);
-          setIsGoogleLoading(false);
-        }
-      });
-
-    const {
-      data: { subscription }
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!active || !session?.user) return;
-
-      try {
-        await ensureAccountFromUser(session.user);
+    supabase.auth.getSession().then(({ data, error: sessionError }) => {
+      if (!active) return;
+      if (sessionError) {
+        setError(sessionError.message);
+        return;
+      }
+      if (data.session?.user) {
         router.replace("/");
-      } catch (caughtError) {
-        const messageText =
-          caughtError instanceof Error ? caughtError.message : "Falha ao montar conta.";
-        setError(messageText);
-        setIsGoogleLoading(false);
       }
     });
 
     return () => {
       active = false;
-      subscription.unsubscribe();
     };
   }, [router]);
 
-  async function signInWithGoogle() {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setError("");
     setMessage("");
-    setIsGoogleLoading(true);
+    setIsLoading(true);
     const supabase = getSupabaseBrowserClient();
 
     try {
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: getAuthRedirectUrl()
+      if (mode === "signup") {
+        if (password.length < 6) {
+          throw new Error("A senha precisa ter pelo menos 6 caracteres.");
         }
-      });
 
-      if (oauthError) throw oauthError;
+        const cleanHandle = normalizeHandle(handle || email.split("@")[0] || "user");
+        const cleanName = normalizeName(name, cleanHandle);
+        const cleanYoutubeAccount = youtubeAccount.trim();
+        const cleanProfilePhotoUrl = profilePhotoUrl.trim();
 
-      if (data.url) {
-        window.location.assign(data.url);
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              name: cleanName,
+              handle: cleanHandle,
+              youtube_account: cleanYoutubeAccount || null,
+              profile_photo_url: cleanProfilePhotoUrl || null
+            }
+          }
+        });
+
+        if (signUpError) throw signUpError;
+
+        if (data.user && data.session) {
+          await ensureAccount(
+            data.user.id,
+            cleanName,
+            cleanHandle,
+            cleanYoutubeAccount,
+            cleanProfilePhotoUrl
+          );
+        }
+
+        if (data.session) {
+          router.replace("/");
+          return;
+        }
+
+        setMessage(
+          "Conta criada, mas sem sessao ativa. Para entrar sem confirmar email, desative 'Confirm email' em Supabase > Authentication > Providers > Email."
+        );
         return;
       }
 
-      setMessage("Abrindo login do Google...");
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (signInError) throw signInError;
+
+      if (data.user) {
+        await ensureAccountFromUser(data.user, email);
+      }
+
+      router.replace("/");
     } catch (caughtError) {
       const messageText =
         caughtError instanceof Error ? caughtError.message : "Falha na autenticacao.";
       setError(messageText);
-      setIsGoogleLoading(false);
+    } finally {
+      setIsLoading(false);
     }
-  }
-
-  if (isCheckingSession) {
-    return (
-      <main className="retro-page">
-        <section className="retro-window">
-          <h1 className="retro-title">Twittlier :: conta</h1>
-          <p>Validando sessao...</p>
-        </section>
-      </main>
-    );
   }
 
   return (
     <main className="retro-page">
       <section className="retro-window">
         <h1 className="retro-title">Twittlier :: conta</h1>
-        <div className="retro-form">
-          <p>Login liberado apenas com Google.</p>
+
+        <div className="auth-tabs">
           <button
-            className="retro-button primary"
+            className="retro-button"
             type="button"
-            onClick={signInWithGoogle}
-            disabled={isGoogleLoading}
+            data-active={mode === "login"}
+            onClick={() => setMode("login")}
           >
-            {isGoogleLoading ? "Redirecionando..." : "Entrar com Google"}
+            Login
           </button>
+          <button
+            className="retro-button"
+            type="button"
+            data-active={mode === "signup"}
+            onClick={() => setMode("signup")}
+          >
+            Criar conta
+          </button>
+        </div>
+
+        <form className="retro-form" onSubmit={onSubmit}>
+          <label htmlFor="auth-email">Email</label>
+          <input
+            id="auth-email"
+            className="retro-input"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
+
+          <label htmlFor="auth-password">Senha</label>
+          <input
+            id="auth-password"
+            className="retro-input"
+            type="password"
+            autoComplete={mode === "login" ? "current-password" : "new-password"}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+          />
+
+          {mode === "signup" ? (
+            <>
+              <label htmlFor="auth-name">Nome</label>
+              <input
+                id="auth-name"
+                className="retro-input"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="ex: Joao Silva"
+              />
+
+              <label htmlFor="auth-handle">@</label>
+              <input
+                id="auth-handle"
+                className="retro-input"
+                value={handle}
+                onChange={(event) => setHandle(event.target.value)}
+                placeholder="ex: joao_90"
+              />
+
+              <label htmlFor="auth-youtube">Conta do YouTube (opcional)</label>
+              <input
+                id="auth-youtube"
+                className="retro-input"
+                value={youtubeAccount}
+                onChange={(event) => setYoutubeAccount(event.target.value)}
+                placeholder="ex: @meucanal ou URL"
+              />
+
+              <label htmlFor="auth-photo">Foto de perfil URL (opcional)</label>
+              <input
+                id="auth-photo"
+                className="retro-input"
+                type="url"
+                value={profilePhotoUrl}
+                onChange={(event) => setProfilePhotoUrl(event.target.value)}
+                placeholder="https://..."
+              />
+            </>
+          ) : null}
+
           {message ? <p className="retro-muted">{message}</p> : null}
           {error ? <p className="retro-error">{error}</p> : null}
-        </div>
+
+          <button className="retro-button primary" type="submit" disabled={isLoading}>
+            {isLoading ? "Processando..." : mode === "login" ? "Entrar" : "Cadastrar"}
+          </button>
+        </form>
       </section>
     </main>
   );
