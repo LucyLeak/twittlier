@@ -43,6 +43,128 @@ function formatBytes(value: number) {
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function HomeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 10.5 12 3l9 7.5" />
+      <path d="M5.5 9.5V21h13V9.5" />
+      <path d="M9.5 21v-6h5v6" />
+    </svg>
+  );
+}
+
+function ProfileIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="8" r="3.2" />
+      <path d="M5 20c.9-3.7 4-5.5 7-5.5s6.1 1.8 7 5.5" />
+    </svg>
+  );
+}
+
+function LiveIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M8 8.5a5 5 0 0 0 0 7" />
+      <path d="M16 8.5a5 5 0 0 1 0 7" />
+      <path d="M5 5.5a9 9 0 0 0 0 13" />
+      <path d="M19 5.5a9 9 0 0 1 0 13" />
+      <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M12 2.8v2.4" />
+      <path d="M12 18.8v2.4" />
+      <path d="m4.9 4.9 1.7 1.7" />
+      <path d="m17.4 17.4 1.7 1.7" />
+      <path d="M2.8 12h2.4" />
+      <path d="M18.8 12h2.4" />
+      <path d="m4.9 19.1 1.7-1.7" />
+      <path d="m17.4 6.6 1.7-1.7" />
+    </svg>
+  );
+}
+
+function LogoutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M9 4H5v16h4" />
+      <path d="M13 8l4 4-4 4" />
+      <path d="M8 12h9" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="5" y="11" width="14" height="10" rx="1" />
+      <path d="M8 11V8a4 4 0 1 1 8 0v3" />
+    </svg>
+  );
+}
+
+function HeartIcon({ filled = false }: { filled?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="m12 20-1.2-1.1C6.2 14.8 3.5 12.4 3.5 8.9A4.4 4.4 0 0 1 8 4.5c1.5 0 3 .7 4 1.9 1-1.2 2.5-1.9 4-1.9a4.4 4.4 0 0 1 4.5 4.4c0 3.5-2.7 5.9-7.3 10L12 20Z"
+        fill={filled ? "currentColor" : "none"}
+      />
+    </svg>
+  );
+}
+
+function CommentIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 6.5h14v9H9l-4 3v-12Z" />
+    </svg>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M2.5 12s3.5-5.5 9.5-5.5S21.5 12 21.5 12s-3.5 5.5-9.5 5.5S2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="2.5" />
+    </svg>
+  );
+}
+
+function EyeOffIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 4.5 20.5 19" />
+      <path d="M10.6 6.7a9.7 9.7 0 0 1 1.4-.2c6 0 9.5 5.5 9.5 5.5a18 18 0 0 1-3.8 4.2" />
+      <path d="M6.6 8.2A18.2 18.2 0 0 0 2.5 12s3.5 5.5 9.5 5.5c1.3 0 2.5-.3 3.5-.7" />
+      <path d="M9.9 9.9A3 3 0 0 0 12 15a3 3 0 0 0 2.1-.9" />
+    </svg>
+  );
+}
+
+function maskEmail(email: string) {
+  const [localPart, domainPart] = email.split("@");
+  if (!localPart || !domainPart) return "oculto";
+
+  const [domainName, ...domainSuffix] = domainPart.split(".");
+  const maskedLocal =
+    localPart.length <= 2
+      ? `${localPart.slice(0, 1)}*`
+      : `${localPart.slice(0, 2)}${"*".repeat(Math.max(2, localPart.length - 2))}`;
+  const maskedDomain =
+    domainName.length <= 2
+      ? `${domainName.slice(0, 1)}*`
+      : `${domainName.slice(0, 2)}${"*".repeat(Math.max(2, domainName.length - 2))}`;
+
+  return `${maskedLocal}@${maskedDomain}${domainSuffix.length ? `.${domainSuffix.join(".")}` : ""}`;
+}
+
 export default function FeedPage() {
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -64,6 +186,9 @@ export default function FeedPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [pendingLikePostId, setPendingLikePostId] = useState<string | null>(null);
+  const [replySubmittingPostId, setReplySubmittingPostId] = useState<string | null>(null);
+  const [isEmailVisible, setIsEmailVisible] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
 
@@ -168,6 +293,10 @@ export default function FeedPage() {
     const currentLikes = postLikes[post.id] ?? { count: 0, liked: false };
 
     try {
+      setError("");
+      setStatus("");
+      setPendingLikePostId(post.id);
+
       if (currentLikes.liked) {
         const { error } = await supabase
           .from("post_likes")
@@ -198,20 +327,25 @@ export default function FeedPage() {
           liked: !currentLikes.liked
         }
       }));
+      setStatus(currentLikes.liked ? "Curtida removida." : "Post curtido.");
     } catch (caughtError) {
       const messageText =
         caughtError instanceof Error ? caughtError.message : "Falha ao processar curtida.";
       setError(messageText);
+    } finally {
+      setPendingLikePostId((currentId) => (currentId === post.id ? null : currentId));
     }
   }
 
   async function submitReply(post: PostRecord, replyText: string) {
     if (!currentAccount) return;
     const cleanText = replyText.trim();
-    if (!cleanText) return;
+    if (!cleanText) return false;
 
     try {
-      setIsActionLoading(true);
+      setError("");
+      setStatus("");
+      setReplySubmittingPostId(post.id);
       const supabase = getSupabaseBrowserClient();
       const { error: insertError } = await supabase.from("posts").insert({
         user_id: currentAccount.user_id,
@@ -230,12 +364,16 @@ export default function FeedPage() {
       }
 
       await refreshState();
+      const replyTarget = getAccountFromPost(post)?.handle || "anon";
+      setStatus(`Comentario publicado para @${replyTarget}.`);
+      return true;
     } catch (caughtError) {
       const messageText =
         caughtError instanceof Error ? caughtError.message : "Falha ao enviar resposta.";
       setError(messageText);
+      return false;
     } finally {
-      setIsActionLoading(false);
+      setReplySubmittingPostId((currentId) => (currentId === post.id ? null : currentId));
     }
   }
 
@@ -358,6 +496,12 @@ export default function FeedPage() {
       .filter((post) => post.user_id !== currentAccount.user_id && !followingSet.has(post.user_id))
       .slice(0, 5);
   }, [visiblePosts, followingSet, currentAccount]);
+
+  const displayedEmail = user?.email
+    ? isEmailVisible
+      ? user.email
+      : maskEmail(user.email)
+    : "sem email";
 
   async function handleMediaUpload(activeUser: User) {
     if (!file) return { mediaUrl: null as string | null, mediaType: null as MediaType };
@@ -563,32 +707,71 @@ export default function FeedPage() {
             <h1 className="tw-brand">Twittlier</h1>
             <p className="tw-handle-label">@{currentAccount?.handle || "usuario"}</p>
             <div className="tw-menu">
-              <button className="retro-button" type="button" onClick={() => router.push("/")}>
-                Home
+              <button className="retro-button tw-menu-button" type="button" onClick={() => router.push("/")}>
+                <span className="tw-button-icon">
+                  <HomeIcon />
+                </span>
+                <span>Home</span>
               </button>
               {currentAccount?.handle ? (
                 <button
-                  className="retro-button"
+                  className="retro-button tw-menu-button"
                   type="button"
                   onClick={() => router.push(`/perfil/${currentAccount.handle}`)}
                 >
-                  Perfil
+                  <span className="tw-button-icon">
+                    <ProfileIcon />
+                  </span>
+                  <span>Perfil</span>
                 </button>
               ) : null}
-              <button className="retro-button" type="button" onClick={() => router.push("/live")}>
-                Live
+              <button className="retro-button tw-menu-button" type="button" onClick={() => router.push("/live")}>
+                <span className="tw-button-icon">
+                  <LiveIcon />
+                </span>
+                <span>Live</span>
               </button>
-              <button className="retro-button" type="button" onClick={() => router.push("/configuracoes")}>
-                Configuracoes
+              <button className="retro-button tw-menu-button" type="button" onClick={() => router.push("/configuracoes")}>
+                <span className="tw-button-icon">
+                  <SettingsIcon />
+                </span>
+                <span>Configuracoes</span>
               </button>
-              <button className="retro-button" type="button" onClick={signOut}>
-                Sair
+              <button className="retro-button tw-menu-button" type="button" onClick={signOut}>
+                <span className="tw-button-icon">
+                  <LogoutIcon />
+                </span>
+                <span>Sair</span>
               </button>
-              <button className="retro-button danger" type="button" onClick={lockApp}>
-                Travar
+              <button className="retro-button danger tw-menu-button" type="button" onClick={lockApp}>
+                <span className="tw-button-icon">
+                  <LockIcon />
+                </span>
+                <span>Travar</span>
               </button>
             </div>
-            <p className="retro-muted">Logado: {user?.email || "sem email"}</p>
+            <div className="tw-user-email-panel">
+              <p className="retro-muted">Email da conta</p>
+              <div className="tw-user-email-row">
+                <span className="tw-sensitive-value" data-visible={isEmailVisible ? "true" : "false"}>
+                  {displayedEmail}
+                </span>
+                {user?.email ? (
+                  <button
+                    className="retro-button tw-small-button tw-email-toggle"
+                    type="button"
+                    aria-pressed={isEmailVisible}
+                    aria-label={isEmailVisible ? "Ocultar email" : "Mostrar email"}
+                    onClick={() => setIsEmailVisible((current) => !current)}
+                  >
+                    <span className="tw-button-icon">
+                      {isEmailVisible ? <EyeOffIcon /> : <EyeIcon />}
+                    </span>
+                    <span>{isEmailVisible ? "Ocultar" : "Mostrar"}</span>
+                  </button>
+                ) : null}
+              </div>
+            </div>
           </section>
         </aside>
 
@@ -692,18 +875,21 @@ export default function FeedPage() {
                   const isFollowingAuthor = followingSet.has(post.user_id);
                   const isBlockedAuthor = blockedSet.has(post.user_id);
                   const likeInfo = postLikes[post.id] ?? { count: 0, liked: false };
+                  const replyCount = repliesByParent[post.id]?.length ?? 0;
                   const replyDraft = replyDrafts[post.id] ?? "";
                   const isReplying = Object.prototype.hasOwnProperty.call(replyDrafts, post.id);
+                  const isLikePending = pendingLikePostId === post.id;
+                  const isReplySubmitting = replySubmittingPostId === post.id;
                   const canDelete = Boolean(isOwnPost || currentAccount?.is_moderator);
 
                   return (
                     <div key={post.id}>
-                      <article className="tw-post-card">
-                      <div className="tw-post-header">
-                        <div className="tw-post-author">
-                          {author?.profile_photo_url ? (
-                            <img className="tw-avatar" src={author.profile_photo_url} alt={`Foto de ${author.name}`} />
-                          ) : (
+                      <article className="tw-post-card" aria-busy={isLikePending || isReplySubmitting}>
+                       <div className="tw-post-header">
+                         <div className="tw-post-author">
+                           {author?.profile_photo_url ? (
+                             <img className="tw-avatar" src={author.profile_photo_url} alt={`Foto de ${author.name}`} />
+                           ) : (
                             <div className="tw-avatar fallback">
                               {(author?.name || "?").slice(0, 1).toUpperCase()}
                             </div>
@@ -719,17 +905,26 @@ export default function FeedPage() {
                         <time className="post-time">{new Date(post.created_at).toLocaleString("pt-BR")}</time>
                       </div>
 
-                      {post.content ? <p className="post-text">{post.content}</p> : null}
-                      {post.media_url && post.media_type === "video" ? (
-                        <video className="tw-post-media" src={post.media_url} controls />
-                      ) : null}
-                      {post.media_url && post.media_type !== "video" ? (
-                        <img className="tw-post-media" src={post.media_url} alt="Midia do post" />
-                      ) : null}
+                       <div className="tw-post-body">
+                         {post.content ? <p className="post-text">{post.content}</p> : null}
+                         {post.media_url && post.media_type === "video" ? (
+                           <video className="tw-post-media" src={post.media_url} controls />
+                         ) : null}
+                         {post.media_url && post.media_type !== "video" ? (
+                           <img className="tw-post-media" src={post.media_url} alt="Midia do post" />
+                         ) : null}
+                       </div>
 
-                      <div className="tw-post-actions">
-                        {author?.handle ? (
-                          <button
+                       {(likeInfo.count > 0 || replyCount > 0) ? (
+                         <div className="tw-post-engagement" aria-label="Resumo de interacoes">
+                           <span className="tw-meta-chip">{likeInfo.count} curtidas</span>
+                           <span className="tw-meta-chip">{replyCount} comentarios</span>
+                         </div>
+                       ) : null}
+
+                       <div className="tw-post-actions">
+                         {author?.handle ? (
+                           <button
                             className="retro-button tw-small-button"
                             type="button"
                             onClick={() => router.push(`/perfil/${author.handle}`)}
@@ -737,34 +932,49 @@ export default function FeedPage() {
                             Ver perfil
                           </button>
                         ) : null}
-                        {currentAccount ? (
-                          <>
-                            <button
-                              className="retro-button tw-small-button"
-                              type="button"
-                              onClick={() => toggleLike(post)}
-                            >
-                              {likeInfo.liked ? "Descurtir" : "Curtir"} ({likeInfo.count})
-                            </button>
-                            <button
-                              className="retro-button tw-small-button"
-                              type="button"
-                              onClick={() =>
-                                setReplyDrafts((prev) => {
-                                  const next = { ...prev };
-                                  if (isReplying) {
+                         {currentAccount ? (
+                           <>
+                             <button
+                               className="retro-button tw-small-button tw-action-button"
+                               data-active={likeInfo.liked ? "true" : "false"}
+                               data-kind="like"
+                               type="button"
+                               aria-pressed={likeInfo.liked}
+                               disabled={isLikePending}
+                               onClick={() => toggleLike(post)}
+                             >
+                               <span className="tw-button-icon">
+                                 <HeartIcon filled={likeInfo.liked} />
+                               </span>
+                               <span>{isLikePending ? "Salvando..." : likeInfo.liked ? "Curtido" : "Curtir"}</span>
+                               <span className="tw-action-count">{likeInfo.count}</span>
+                             </button>
+                             <button
+                               className="retro-button tw-small-button tw-action-button"
+                               data-active={isReplying ? "true" : "false"}
+                               data-kind="reply"
+                               type="button"
+                               aria-expanded={isReplying}
+                               onClick={() =>
+                                 setReplyDrafts((prev) => {
+                                   const next = { ...prev };
+                                   if (isReplying) {
                                     delete next[post.id];
                                   } else {
                                     next[post.id] = "";
                                   }
-                                  return next;
-                                })
-                              }
-                            >
-                              {isReplying ? "Cancelar" : "Responder"}
-                            </button>
-                          </>
-                        ) : null}
+                                   return next;
+                                 })
+                               }
+                             >
+                               <span className="tw-button-icon">
+                                 <CommentIcon />
+                               </span>
+                               <span>{isReplying ? "Fechar comentario" : "Comentar"}</span>
+                               <span className="tw-action-count">{replyCount}</span>
+                             </button>
+                           </>
+                         ) : null}
                         {!isOwnPost && author ? (
                           <>
                             <button
@@ -795,49 +1005,54 @@ export default function FeedPage() {
                             Remover
                           </button>
                         ) : null}
-                      </div>
-                      {isReplying ? (
-                        <form
-                          className="retro-form"
-                          onSubmit={(event) => {
-                            event.preventDefault();
-                            submitReply(post, replyDraft);
-                            setReplyDrafts((prev) => {
-                              const next = { ...prev };
-                              delete next[post.id];
-                              return next;
-                            });
-                          }}
-                        >
-                          <textarea
-                            className="tw-composer-input"
-                            placeholder="Escreva uma resposta..."
-                            value={replyDraft}
-                            onChange={(event) =>
-                              setReplyDrafts((prev) => ({ ...prev, [post.id]: event.target.value }))
-                            }
-                          />
-                          <button
-                            className="retro-button primary tw-small-button"
-                            type="submit"
-                            disabled={!replyDraft.trim() || isActionLoading}
-                          >
-                            Enviar resposta
-                          </button>
-                        </form>
-                      ) : null}
-                    </article>
-                    <div className="tw-post-replies">
+                       </div>
+                       {isReplying ? (
+                         <form
+                           className="retro-form tw-reply-panel"
+                           onSubmit={async (event) => {
+                             event.preventDefault();
+                             const wasSubmitted = await submitReply(post, replyDraft);
+                             if (!wasSubmitted) return;
+                             setReplyDrafts((prev) => {
+                               const next = { ...prev };
+                               delete next[post.id];
+                               return next;
+                             });
+                           }}
+                         >
+                           <div className="tw-reply-context">
+                             <span className="tw-reply-badge">Comentario</span>
+                             <p className="retro-muted">Respondendo a @{author?.handle || "anon"}</p>
+                           </div>
+                           <textarea
+                             className="tw-composer-input"
+                             placeholder="Escreva seu comentario..."
+                             value={replyDraft}
+                             onChange={(event) =>
+                               setReplyDrafts((prev) => ({ ...prev, [post.id]: event.target.value }))
+                             }
+                           />
+                           <button
+                             className="retro-button primary tw-small-button"
+                             type="submit"
+                             disabled={!replyDraft.trim() || isReplySubmitting}
+                           >
+                             {isReplySubmitting ? "Publicando..." : "Publicar comentario"}
+                           </button>
+                         </form>
+                       ) : null}
+                     </article>
+                     <div className="tw-post-replies">
                       {repliesByParent[post.id]?.map((reply) => {
                         const replyAuthor = getAccountFromPost(reply);
                         const replyIsOwn = currentAccount?.user_id === reply.user_id;
 
                         return (
-                          <article className="tw-post-card" key={reply.id}>
-                          <div className="tw-post-header">
-                            <div className="tw-post-author">
-                              {replyAuthor?.profile_photo_url ? (
-                                <img
+                          <article className="tw-post-card tw-post-reply-card" key={reply.id}>
+                           <div className="tw-post-header">
+                             <div className="tw-post-author">
+                               {replyAuthor?.profile_photo_url ? (
+                                 <img
                                   className="tw-avatar"
                                   src={replyAuthor.profile_photo_url}
                                   alt={`Foto de ${replyAuthor.name}`}
@@ -852,16 +1067,19 @@ export default function FeedPage() {
                                   {replyAuthor?.name || "Anon"}
                                   {replyAuthor?.is_moderator ? (
                                     <span className="tw-role-chip">MOD</span>
-                                  ) : null}
-                                </div>
-                                <div className="tw-post-handle">
+                                 ) : null}
+                               </div>
+                               <div className="tw-post-handle">
                                   @{replyAuthor?.handle || "anon"}
                                 </div>
                               </div>
                             </div>
-                            <time className="post-time">
-                              {new Date(reply.created_at).toLocaleString("pt-BR")}
-                            </time>
+                            <div className="tw-inline-actions">
+                              <span className="tw-reply-badge">Resposta</span>
+                              <time className="post-time">
+                                {new Date(reply.created_at).toLocaleString("pt-BR")}
+                              </time>
+                            </div>
                           </div>
                           {reply.content ? <p className="post-text">{reply.content}</p> : null}
                           {reply.media_url && reply.media_type === "video" ? (
