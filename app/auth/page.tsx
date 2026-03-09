@@ -18,6 +18,19 @@ function normalizeName(source: string, fallbackHandle: string) {
   return fallbackHandle;
 }
 
+function getEmailRedirectUrl() {
+  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (configuredSiteUrl) {
+    return `${configuredSiteUrl.replace(/\/+$/, "")}/auth`;
+  }
+
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/auth`;
+  }
+
+  return undefined;
+}
+
 export default function AuthPage() {
   const router = useRouter();
 
@@ -109,6 +122,7 @@ export default function AuthPage() {
           email,
           password,
           options: {
+            emailRedirectTo: getEmailRedirectUrl(),
             data: {
               name: cleanName,
               handle: cleanHandle,

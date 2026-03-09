@@ -40,16 +40,27 @@ Copie `.env.example` para `.env.local` e preencha:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://SEU-PROJETO.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=SUA_SUPABASE_PUBLISHABLE_KEY
+NEXT_PUBLIC_SITE_URL=https://seu-app.vercel.app
 SITE_ACCESS_CODE=seu-codigo-privado
 ```
 
 Compatibilidade: `NEXT_PUBLIC_SUPABASE_ANON_KEY` tambem funciona (legado).
+`NEXT_PUBLIC_SITE_URL` e recomendado para link de confirmacao de email.
 
 ### No Vercel
 
-No projeto da Vercel, adicione as mesmas 3 variaveis em:
+No projeto da Vercel, adicione as mesmas variaveis em:
 
 - `Settings` -> `Environment Variables`
+
+## 2.1) Configurar URL de autenticacao no Supabase
+
+Em `Supabase > Authentication > URL Configuration`:
+
+- `Site URL`: coloque seu dominio de producao (ex.: `https://seu-app.vercel.app`)
+- `Redirect URLs`: inclua:
+  - `https://seu-app.vercel.app/auth`
+  - `http://localhost:3000/auth` (para desenvolvimento local)
 
 ## 3) Rodar localmente
 
