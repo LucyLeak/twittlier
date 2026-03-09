@@ -27,6 +27,24 @@ create table if not exists public.accounts (
 );
 
 alter table if exists public.accounts
+add column if not exists youtube_account text;
+
+alter table if exists public.accounts
+add column if not exists profile_photo_url text;
+
+alter table if exists public.accounts
+add column if not exists theme_preference text not null default 'light';
+
+alter table if exists public.accounts
+add column if not exists notifications_enabled boolean not null default true;
+
+alter table if exists public.accounts
+add column if not exists created_at timestamptz not null default now();
+
+alter table if exists public.accounts
+add column if not exists updated_at timestamptz not null default now();
+
+alter table if exists public.accounts
 add column if not exists email_verified_optional boolean not null default false;
 
 alter table if exists public.accounts
