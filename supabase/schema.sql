@@ -289,8 +289,7 @@ on public.live_messages
 for update
 to authenticated
 using (
-  room_owner_user_id = auth.uid()
-  or exists (
+  exists (
     select 1
     from public.accounts me
     where me.user_id = auth.uid()
@@ -298,8 +297,7 @@ using (
   )
 )
 with check (
-  room_owner_user_id = auth.uid()
-  or exists (
+  exists (
     select 1
     from public.accounts me
     where me.user_id = auth.uid()
@@ -320,8 +318,7 @@ on public.live_messages
 for delete
 to authenticated
 using (
-  room_owner_user_id = auth.uid()
-  or exists (
+  exists (
     select 1
     from public.accounts me
     where me.user_id = auth.uid()
@@ -435,13 +432,6 @@ using (
   bucket_id = 'live-media'
   and (
     (storage.foldername(name))[1] = auth.uid()::text
-    or exists (
-      select 1
-      from public.live_messages lm
-      where lm.room_owner_user_id = auth.uid()
-        and lm.media_url is not null
-        and position(name in lm.media_url) > 0
-    )
     or exists (
       select 1
       from public.accounts me

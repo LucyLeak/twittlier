@@ -14,6 +14,7 @@ type LiveMessage = {
   id: string;
   room_owner_user_id: string;
   author_user_id: string;
+  author_handle?: string | null;
   content: string | null;
   media_url: string | null;
   media_type: MediaType;
@@ -25,6 +26,17 @@ type LiveMessage = {
 };
 
 const LIVE_POLL_MS = 3200;
+const DEFAULT_OVERLAY_KEY = process.env.NEXT_PUBLIC_OBS_OVERLAY_KEY ?? "";
+
+type OverlayApiMessage = {
+  id: string;
+  author_user_id: string;
+  author_handle: string;
+  content: string | null;
+  media_url: string | null;
+  media_type: MediaType;
+  created_at: string;
+};
 
 function getMediaType(file: File): MediaType {
   if (file.type === "image/gif") return "gif";
@@ -53,6 +65,7 @@ export default function LivePage() {
   const [origin, setOrigin] = useState("");
   const [overlayMode, setOverlayMode] = useState(false);
   const [requestedHandle, setRequestedHandle] = useState("");
+  const [overlayAccessKey, setOverlayAccessKey] = useState("");
   const [user, setUser] = useState<User | null>(null);
   const [viewerAccount, setViewerAccount] = useState<AccountRow | null>(null);
   const [roomOwnerAccount, setRoomOwnerAccount] = useState<AccountRow | null>(null);
@@ -69,11 +82,14 @@ export default function LivePage() {
   const [error, setError] = useState("");
 
   const canModerateLive = useMemo(() => {
-    if (!viewerAccount || !roomOwnerAccount) return false;
-    return viewerAccount.is_moderator || viewerAccount.user_id === roomOwnerAccount.user_id;
-  }, [viewerAccount, roomOwnerAccount]);
+    if (!viewerAccount) return false;
+    return viewerAccount.is_moderator;
+  }, [viewerAccount]);
 
   const visibleMessages = useMemo(() => {
+    if (overlayMode) {
+      return messages.filter((message) => message.moderation_status === "approved");
+    }
     if (!viewerAccount) return [];
     return messages.filter((message) => {
       if (message.moderation_status === "approved") return true;
@@ -85,13 +101,51 @@ export default function LivePage() {
 
   const embedUrl = useMemo(() => {
     if (!origin || !roomOwnerAccount) return "";
-    return `${origin}/live?stream=${roomOwnerAccount.handle}&overlay=1`;
+    const base = `${origin}/live?stream=${roomOwnerAccount.handle}&overlay=1`;
+    if (!DEFAULT_OVERLAY_KEY) return base;
+    return `${base}&key=${encodeURIComponent(DEFAULT_OVERLAY_KEY)}`;
   }, [origin, roomOwnerAccount]);
+
+  async function loadOverlayMessages(streamHandle: string, key: string) {
+    const response = await fetch(
+      `/api/live-overlay?stream=${encodeURIComponent(streamHandle)}&key=${encodeURIComponent(key)}`,
+      { cache: "no-store" }
+    );
+    const payload = (await response.json().catch(() => null)) as
+      | {
+          error?: string;
+          roomOwner?: { user_id: string; handle: string; name?: string | null };
+          messages?: OverlayApiMessage[];
+        }
+      | null;
+
+    if (!response.ok) {
+      throw new Error(payload?.error || "Falha ao carregar overlay da live.");
+    }
+
+    const mappedMessages: LiveMessage[] = (payload?.messages ?? []).map((message) => ({
+      id: message.id,
+      room_owner_user_id: payload?.roomOwner?.user_id || "",
+      author_user_id: message.author_user_id,
+      author_handle: message.author_handle,
+      content: message.content,
+      media_url: message.media_url,
+      media_type: message.media_type,
+      moderation_status: "approved",
+      moderation_reason: null,
+      moderated_by_user_id: null,
+      moderated_at: null,
+      created_at: message.created_at
+    }));
+
+    setMessages(mappedMessages);
+    setPendingMessages([]);
+    setAuthorMap({});
+  }
 
   async function loadRoomMessages(currentRoomOwner: AccountRow, currentViewer: AccountRow) {
     const supabase = getSupabaseBrowserClient();
-    const moderationAllowed =
-      currentViewer.is_moderator || currentViewer.user_id === currentRoomOwner.user_id;
+    const moderationAllowed = currentViewer.is_moderator;
 
     const { data: rawMessages, error: messagesError } = await supabase
       .from("live_messages")
@@ -158,8 +212,21 @@ export default function LivePage() {
       const rawStream = searchParams?.get("stream") || "";
       const normalizedStream = rawStream ? normalizeHandle(rawStream) : "";
       const isOverlay = searchParams?.get("overlay") === "1";
+      const rawOverlayKey = searchParams?.get("key") || "";
       setRequestedHandle(normalizedStream);
       setOverlayMode(isOverlay);
+      setOverlayAccessKey(rawOverlayKey);
+
+      if (isOverlay) {
+        if (!normalizedStream) {
+          throw new Error("URL de overlay sem stream.");
+        }
+        if (!rawOverlayKey) {
+          throw new Error("URL de overlay sem chave de acesso.");
+        }
+        await loadOverlayMessages(normalizedStream, rawOverlayKey);
+        return;
+      }
 
       const { user: sessionUser, error: sessionError } = await getSessionUserWithRetry(supabase);
       if (!sessionUser) {
@@ -214,6 +281,10 @@ export default function LivePage() {
   }, [router]);
 
   useEffect(() => {
+    if (overlayMode) {
+      return;
+    }
+
     const supabase = getSupabaseBrowserClient();
     const {
       data: { subscription }
@@ -226,9 +297,27 @@ export default function LivePage() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [router]);
+  }, [router, overlayMode]);
 
   useEffect(() => {
+    if (overlayMode) {
+      if (!requestedHandle || !overlayAccessKey) return;
+      let active = true;
+      const interval = setInterval(() => {
+        loadOverlayMessages(requestedHandle, overlayAccessKey).catch((caughtError) => {
+          if (!active) return;
+          const messageText =
+            caughtError instanceof Error ? caughtError.message : "Falha ao atualizar overlay.";
+          setError(messageText);
+        });
+      }, LIVE_POLL_MS);
+
+      return () => {
+        active = false;
+        clearInterval(interval);
+      };
+    }
+
     if (!roomOwnerAccount || !viewerAccount) return;
     let active = true;
     const interval = setInterval(() => {
@@ -244,7 +333,7 @@ export default function LivePage() {
       active = false;
       clearInterval(interval);
     };
-  }, [roomOwnerAccount, viewerAccount]);
+  }, [overlayMode, requestedHandle, overlayAccessKey, roomOwnerAccount, viewerAccount]);
 
   useEffect(() => {
     if (!file) {
@@ -366,6 +455,11 @@ export default function LivePage() {
         if (approveError) throw approveError;
         setStatus("Midia aprovada e publicada no chat da live.");
       } else {
+        const moderatedContent =
+          message.content && message.content.trim().length > 0
+            ? message.content
+            : "[Conteudo improprio removido pela moderacao.]";
+
         if (message.media_url) {
           const filePath = extractStoragePathFromPublicUrl(message.media_url, "live-media");
           if (filePath) {
@@ -386,6 +480,7 @@ export default function LivePage() {
           .update({
             moderation_status: "rejected",
             moderation_reason: "Conteudo improprio para a live.",
+            content: moderatedContent,
             media_url: null,
             media_type: null,
             moderated_by_user_id: viewerAccount.user_id,
@@ -425,11 +520,12 @@ export default function LivePage() {
         <div className="tw-live-feed">
           {visibleMessages.map((message) => {
             if (message.moderation_status !== "approved") return null;
-            const author = authorMap[message.author_user_id];
+            const author =
+              message.author_handle || authorMap[message.author_user_id]?.handle || "anon";
             return (
               <article className="tw-live-message" key={message.id}>
                 <header className="tw-live-message-head">
-                  <strong className="tw-live-author">@{author?.handle || "anon"}</strong>
+                  <strong className="tw-live-author">@{author}</strong>
                   <time className="tw-live-time">
                     {new Date(message.created_at).toLocaleTimeString("pt-BR")}
                   </time>
@@ -475,6 +571,11 @@ export default function LivePage() {
           URL para OBS overlay:{" "}
           <code className="tw-live-code">{embedUrl || "carregando..."}</code>
         </p>
+        {!DEFAULT_OVERLAY_KEY ? (
+          <p className="retro-error">
+            Defina NEXT_PUBLIC_OBS_OVERLAY_KEY e OBS_OVERLAY_KEY para usar overlay sem login.
+          </p>
+        ) : null}
       </section>
 
       <section className="tw-card">

@@ -53,6 +53,8 @@ NEXT_PUBLIC_SUPABASE_URL=https://SEU-PROJETO.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=SUA_SUPABASE_PUBLISHABLE_KEY
 SUPABASE_SERVICE_ROLE_KEY=SUA_SUPABASE_SERVICE_ROLE_KEY
 SITE_ACCESS_CODE=seu-codigo-privado
+OBS_OVERLAY_KEY=sua-chave-overlay-obs
+NEXT_PUBLIC_OBS_OVERLAY_KEY=sua-chave-overlay-obs
 ```
 
 Compatibilidade: `NEXT_PUBLIC_SUPABASE_ANON_KEY` tambem funciona (legado).
@@ -96,8 +98,9 @@ Nunca exponha essa chave no frontend.
 4. Em `/perfil/[handle]`, visualiza perfil e usa follow/block.
 5. Em `/configuracoes`, edita nome/foto/@, confirma email opcional e (se for mod) gerencia moderadores.
 6. Em `/live`, usa o chat de live e copia a URL de overlay para OBS:
-   - `https://seu-site/live?stream=handle&overlay=1`
-   - midia fica pendente e so aparece no overlay apos aprovacao de mod/dono da sala.
+   - `https://seu-site/live?stream=handle&overlay=1&key=sua-chave-overlay-obs`
+   - midia fica pendente e so aparece no overlay apos aprovacao de moderador.
+   - o overlay funciona sem login/codigo, desde que a `key` esteja correta.
 
 ## Observacoes importantes
 
