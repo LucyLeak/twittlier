@@ -38,7 +38,7 @@ export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null);
   const [account, setAccount] = useState<AccountSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSending, setIsSending] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
 
@@ -159,36 +159,47 @@ export default function SettingsPage() {
     };
   }, [router]);
 
-  async function sendConfirmationEmail() {
+  async function confirmEmailNow() {
     setError("");
     setStatus("");
 
-    if (!user?.email) {
-      setError("Nao foi possivel identificar o email da conta.");
+    if (!user) {
+      setError("Sessao invalida. Faca login novamente.");
       return;
     }
 
-    setIsSending(true);
+    setIsSaving(true);
     try {
-      const redirectTo = `${window.location.origin}/configuracoes?email_confirmed=1`;
       const supabase = getSupabaseBrowserClient();
-      const { error: sendError } = await supabase.auth.signInWithOtp({
-        email: user.email,
-        options: {
-          shouldCreateUser: false,
-          emailRedirectTo: redirectTo
-        }
-      });
+      const nowIso = new Date().toISOString();
+      const { error: updateError } = await supabase
+        .from("accounts")
+        .update({
+          email_verified_optional: true,
+          email_verified_at: nowIso
+        })
+        .eq("user_id", user.id);
 
-      if (sendError) throw sendError;
+      if (updateError) throw updateError;
 
-      setStatus("Email enviado. Abra sua caixa de entrada e clique no link para confirmar.");
+      setAccount((previous) =>
+        previous
+          ? {
+              ...previous,
+              email_verified_optional: true,
+              email_verified_at: nowIso
+            }
+          : previous
+      );
+      setStatus("Email marcado como confirmado.");
     } catch (caughtError) {
       const messageText =
-        caughtError instanceof Error ? caughtError.message : "Nao foi possivel enviar o email.";
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Nao foi possivel confirmar agora.";
       setError(messageText);
     } finally {
-      setIsSending(false);
+      setIsSaving(false);
     }
   }
 
@@ -233,8 +244,8 @@ export default function SettingsPage() {
       <section className="retro-window">
         <h2 className="retro-title">Confirmacao opcional de email</h2>
         <p className="retro-muted">
-          Seu login funciona sem confirmacao obrigatoria. Se quiser confirmar depois, use o botao
-          abaixo.
+          Seu login funciona sem confirmacao obrigatoria. Se quiser, marque sua conta como
+          confirmada no botao abaixo.
         </p>
         <p>
           <strong>Status:</strong>{" "}
@@ -246,10 +257,10 @@ export default function SettingsPage() {
         <button
           className="retro-button primary"
           type="button"
-          disabled={isSending}
-          onClick={sendConfirmationEmail}
+          disabled={isSaving}
+          onClick={confirmEmailNow}
         >
-          {isSending ? "Enviando..." : "Confirmar email"}
+          {isSaving ? "Salvando..." : "Confirmar email"}
         </button>
         {status ? <p className="retro-muted">{status}</p> : null}
         {error ? <p className="retro-error">{error}</p> : null}

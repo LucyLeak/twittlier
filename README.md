@@ -82,5 +82,5 @@ Se quiser confirmar depois, pode usar o botao em `/configuracoes`.
 
 ## Observacoes importantes
 
-- O botao `Confirmar email` envia um link para o email e marca confirmacao opcional em `accounts.email_verified_optional`.
+- O botao `Confirmar email` marca confirmacao opcional em `accounts.email_verified_optional`.
 - Essa e a base inicial intencionalmente simples para evoluir nos proximos pedidos.
