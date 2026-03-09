@@ -551,18 +551,21 @@ a {
 }
 
 .tw-live-overlay {
+  width: 100vw;
+  height: 100vh;
   min-height: 100vh;
   padding: 0;
   display: flex;
   align-items: flex-end;
   justify-content: flex-start;
   pointer-events: none;
+  overflow: hidden;
 }
 
 .tw-live-overlay .tw-live-feed {
-  width: min(520px, 92vw);
-  margin: 0 0 14px 14px;
-  max-height: 78vh;
+  width: calc(100vw - 20px);
+  margin: 0 10px 10px;
+  max-height: calc(100vh - 20px);
   overflow: hidden;
 }
 
@@ -590,7 +593,7 @@ a {
 }
 
 .tw-live-overlay .tw-live-media {
-  max-height: 230px;
+  max-height: min(210px, 32vh);
   border: 1px solid rgba(255, 255, 255, 0.26);
 }
 
@@ -652,7 +655,8 @@ a {
   }
 
   .tw-live-overlay .tw-live-feed {
-    width: min(96vw, 520px);
-    margin: 0 0 10px 10px;
+    width: calc(100vw - 12px);
+    margin: 0 6px 6px;
+    max-height: calc(100vh - 12px);
   }
 }
