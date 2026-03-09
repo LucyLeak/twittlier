@@ -2,20 +2,43 @@
 
 create extension if not exists pgcrypto;
 
-create table if not exists public.profiles (
+create table if not exists public.accounts (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  username text not null,
+  name text not null,
+  handle text not null,
+  youtube_account text,
+  profile_photo_url text,
   created_at timestamptz not null default now(),
-  constraint username_format check (
-    username ~ '^[a-z0-9_]{3,24}$'
+  updated_at timestamptz not null default now(),
+  constraint accounts_handle_format check (
+    handle ~ '^[a-z0-9_]{3,24}$'
+  ),
+  constraint accounts_photo_url_format check (
+    profile_photo_url is null or profile_photo_url ~* '^https?://'
   )
 );
 
-alter table public.profiles drop constraint if exists profiles_username_key;
+create unique index if not exists accounts_handle_unique_idx on public.accounts(handle);
+
+create or replace function public.update_updated_at_column()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists accounts_set_updated_at on public.accounts;
+create trigger accounts_set_updated_at
+before update on public.accounts
+for each row
+execute function public.update_updated_at_column();
 
 create table if not exists public.posts (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid not null references public.accounts(user_id) on delete cascade,
   content text,
   media_url text,
   media_type text,
@@ -28,28 +51,33 @@ create table if not exists public.posts (
   )
 );
 
+alter table if exists public.posts drop constraint if exists posts_user_id_fkey;
+alter table if exists public.posts
+add constraint posts_user_id_fkey
+foreign key (user_id) references public.accounts(user_id) on delete cascade;
+
 create index if not exists posts_created_at_idx on public.posts(created_at desc);
 
-alter table public.profiles enable row level security;
+alter table public.accounts enable row level security;
 alter table public.posts enable row level security;
 
-drop policy if exists "profiles_select_authenticated" on public.profiles;
-create policy "profiles_select_authenticated"
-on public.profiles
+drop policy if exists "accounts_select_authenticated" on public.accounts;
+create policy "accounts_select_authenticated"
+on public.accounts
 for select
 to authenticated
 using (true);
 
-drop policy if exists "profiles_insert_own" on public.profiles;
-create policy "profiles_insert_own"
-on public.profiles
+drop policy if exists "accounts_insert_own" on public.accounts;
+create policy "accounts_insert_own"
+on public.accounts
 for insert
 to authenticated
 with check (auth.uid() = user_id);
 
-drop policy if exists "profiles_update_own" on public.profiles;
-create policy "profiles_update_own"
-on public.profiles
+drop policy if exists "accounts_update_own" on public.accounts;
+create policy "accounts_update_own"
+on public.accounts
 for update
 to authenticated
 using (auth.uid() = user_id)

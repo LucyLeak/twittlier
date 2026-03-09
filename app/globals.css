@@ -152,18 +152,49 @@ a {
 .post-head {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: flex-start;
   gap: 10px;
   margin-bottom: 8px;
+}
+
+.post-user-wrap {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.post-avatar {
+  width: 38px;
+  height: 38px;
+  object-fit: cover;
+  border: 2px solid #141414;
+  background: #fff;
+}
+
+.post-avatar.fallback {
+  display: grid;
+  place-items: center;
+  font-weight: bold;
 }
 
 .post-user {
   font-weight: bold;
 }
 
+.post-handle {
+  font-size: 0.84rem;
+  opacity: 0.78;
+}
+
+.post-youtube {
+  font-size: 0.8rem;
+  color: #1834b7;
+}
+
 .post-time {
   font-size: 0.82rem;
   opacity: 0.7;
+  white-space: nowrap;
 }
 
 .post-text {

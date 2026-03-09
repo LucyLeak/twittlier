@@ -7,6 +7,13 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 type MediaType = "image" | "video" | "gif" | null;
 
+type AccountRecord = {
+  name: string;
+  handle: string;
+  youtube_account: string | null;
+  profile_photo_url: string | null;
+};
+
 type PostRecord = {
   id: string;
   user_id: string;
@@ -14,13 +21,13 @@ type PostRecord = {
   media_url: string | null;
   media_type: MediaType;
   created_at: string;
-  profiles: { username: string } | { username: string }[] | null;
+  accounts: AccountRecord | AccountRecord[] | null;
 };
 
-function getProfileName(post: PostRecord) {
-  if (!post.profiles) return "anon";
-  if (Array.isArray(post.profiles)) return post.profiles[0]?.username ?? "anon";
-  return post.profiles.username;
+function getAccount(post: PostRecord) {
+  if (!post.accounts) return null;
+  if (Array.isArray(post.accounts)) return post.accounts[0] ?? null;
+  return post.accounts;
 }
 
 function getMediaType(file: File): MediaType {
@@ -46,7 +53,9 @@ export default function FeedPage() {
     const supabase = getSupabaseBrowserClient();
     const { data, error: selectError } = await supabase
       .from("posts")
-      .select("id, user_id, content, media_url, media_type, created_at, profiles(username)")
+      .select(
+        "id, user_id, content, media_url, media_type, created_at, accounts(name, handle, youtube_account, profile_photo_url)"
+      )
       .order("created_at", { ascending: false })
       .limit(100);
 
@@ -234,23 +243,45 @@ export default function FeedPage() {
           {posts.length === 0 ? (
             <p className="retro-muted">Sem posts ainda. Crie o primeiro.</p>
           ) : (
-            posts.map((post) => (
-              <article className="post-card" key={post.id}>
-                <div className="post-head">
-                  <span className="post-user">@{getProfileName(post)}</span>
-                  <time className="post-time">
-                    {new Date(post.created_at).toLocaleString("pt-BR")}
-                  </time>
-                </div>
-                {post.content ? <p className="post-text">{post.content}</p> : null}
-                {post.media_url && post.media_type === "video" ? (
-                  <video className="post-media" src={post.media_url} controls />
-                ) : null}
-                {post.media_url && post.media_type !== "video" ? (
-                  <img className="post-media" src={post.media_url} alt="Midia do post" />
-                ) : null}
-              </article>
-            ))
+            posts.map((post) => {
+              const account = getAccount(post);
+              const nameLabel = account?.name || "Anon";
+              const handleLabel = account?.handle || "anon";
+              const avatarSource = account?.profile_photo_url || "";
+              const youtubeLabel = account?.youtube_account || "";
+              const avatarFallback = nameLabel.slice(0, 1).toUpperCase();
+
+              return (
+                <article className="post-card" key={post.id}>
+                  <div className="post-head">
+                    <div className="post-user-wrap">
+                      {avatarSource ? (
+                        <img className="post-avatar" src={avatarSource} alt={`Foto de ${nameLabel}`} />
+                      ) : (
+                        <div className="post-avatar fallback">{avatarFallback}</div>
+                      )}
+                      <div>
+                        <div className="post-user">{nameLabel}</div>
+                        <div className="post-handle">@{handleLabel}</div>
+                        {youtubeLabel ? (
+                          <div className="post-youtube">YouTube: {youtubeLabel}</div>
+                        ) : null}
+                      </div>
+                    </div>
+                    <time className="post-time">
+                      {new Date(post.created_at).toLocaleString("pt-BR")}
+                    </time>
+                  </div>
+                  {post.content ? <p className="post-text">{post.content}</p> : null}
+                  {post.media_url && post.media_type === "video" ? (
+                    <video className="post-media" src={post.media_url} controls />
+                  ) : null}
+                  {post.media_url && post.media_type !== "video" ? (
+                    <img className="post-media" src={post.media_url} alt="Midia do post" />
+                  ) : null}
+                </article>
+              );
+            })
           )}
         </div>
       </section>

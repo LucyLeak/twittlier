@@ -6,10 +6,16 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 type AuthMode = "login" | "signup";
 
-function normalizeUsername(source: string) {
+function normalizeHandle(source: string) {
   const base = source.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 24);
   if (base.length >= 3) return base;
   return `user${Math.floor(1000 + Math.random() * 9000)}`;
+}
+
+function normalizeName(source: string, fallbackHandle: string) {
+  const clean = source.trim().slice(0, 60);
+  if (clean.length > 0) return clean;
+  return fallbackHandle;
 }
 
 export default function AuthPage() {
@@ -18,7 +24,10 @@ export default function AuthPage() {
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [username, setUsername] = useState("");
+  const [name, setName] = useState("");
+  const [handle, setHandle] = useState("");
+  const [youtubeAccount, setYoutubeAccount] = useState("");
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -38,16 +47,44 @@ export default function AuthPage() {
     };
   }, [router]);
 
-  async function ensureProfile(userId: string, candidateUsername: string) {
+  async function ensureAccount(
+    userId: string,
+    candidateName: string,
+    candidateHandle: string,
+    candidateYoutubeAccount?: string,
+    candidateProfilePhotoUrl?: string
+  ) {
     const supabase = getSupabaseBrowserClient();
-    const usernameValue = normalizeUsername(candidateUsername);
-    await supabase.from("profiles").upsert(
-      {
-        user_id: userId,
-        username: usernameValue
-      },
-      { onConflict: "user_id" }
-    );
+    const baseHandle = normalizeHandle(candidateHandle);
+    const accountName = normalizeName(candidateName, baseHandle);
+    const youtubeValue = candidateYoutubeAccount?.trim() || null;
+    const photoValue = candidateProfilePhotoUrl?.trim() || null;
+
+    const handleOptions = [
+      baseHandle,
+      `${baseHandle.slice(0, 20)}${Math.floor(1000 + Math.random() * 9000)}`
+    ];
+
+    for (const handleOption of handleOptions) {
+      const { error: upsertError } = await supabase.from("accounts").upsert(
+        {
+          user_id: userId,
+          name: accountName,
+          handle: handleOption,
+          youtube_account: youtubeValue,
+          profile_photo_url: photoValue
+        },
+        { onConflict: "user_id" }
+      );
+
+      if (!upsertError) return;
+
+      if (upsertError.code !== "23505") {
+        throw upsertError;
+      }
+    }
+
+    throw new Error("Nao foi possivel reservar um @ unico para a conta.");
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -63,13 +100,20 @@ export default function AuthPage() {
           throw new Error("A senha precisa ter pelo menos 6 caracteres.");
         }
 
-        const cleanUsername = normalizeUsername(username || email.split("@")[0] || "user");
+        const cleanHandle = normalizeHandle(handle || email.split("@")[0] || "user");
+        const cleanName = normalizeName(name, cleanHandle);
+        const cleanYoutubeAccount = youtubeAccount.trim();
+        const cleanProfilePhotoUrl = profilePhotoUrl.trim();
+
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: {
-              username: cleanUsername
+              name: cleanName,
+              handle: cleanHandle,
+              youtube_account: cleanYoutubeAccount || null,
+              profile_photo_url: cleanProfilePhotoUrl || null
             }
           }
         });
@@ -77,7 +121,13 @@ export default function AuthPage() {
         if (signUpError) throw signUpError;
 
         if (data.user) {
-          await ensureProfile(data.user.id, cleanUsername);
+          await ensureAccount(
+            data.user.id,
+            cleanName,
+            cleanHandle,
+            cleanYoutubeAccount,
+            cleanProfilePhotoUrl
+          );
         }
 
         if (data.session) {
@@ -99,11 +149,30 @@ export default function AuthPage() {
       if (signInError) throw signInError;
 
       if (data.user) {
-        const fallbackName =
-          typeof data.user.user_metadata?.username === "string"
-            ? data.user.user_metadata.username
+        const fallbackHandle =
+          typeof data.user.user_metadata?.handle === "string"
+            ? data.user.user_metadata.handle
             : email.split("@")[0];
-        await ensureProfile(data.user.id, fallbackName);
+        const fallbackName =
+          typeof data.user.user_metadata?.name === "string"
+            ? data.user.user_metadata.name
+            : fallbackHandle;
+        const fallbackYoutube =
+          typeof data.user.user_metadata?.youtube_account === "string"
+            ? data.user.user_metadata.youtube_account
+            : "";
+        const fallbackPhoto =
+          typeof data.user.user_metadata?.profile_photo_url === "string"
+            ? data.user.user_metadata.profile_photo_url
+            : "";
+
+        await ensureAccount(
+          data.user.id,
+          fallbackName,
+          fallbackHandle,
+          fallbackYoutube,
+          fallbackPhoto
+        );
       }
 
       router.replace("/");
@@ -165,13 +234,41 @@ export default function AuthPage() {
 
           {mode === "signup" ? (
             <>
-              <label htmlFor="auth-username">Nome de usuario</label>
+              <label htmlFor="auth-name">Nome</label>
               <input
-                id="auth-username"
+                id="auth-name"
                 className="retro-input"
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="ex: Joao Silva"
+              />
+
+              <label htmlFor="auth-handle">@</label>
+              <input
+                id="auth-handle"
+                className="retro-input"
+                value={handle}
+                onChange={(event) => setHandle(event.target.value)}
                 placeholder="ex: joao_90"
+              />
+
+              <label htmlFor="auth-youtube">Conta do YouTube (opcional)</label>
+              <input
+                id="auth-youtube"
+                className="retro-input"
+                value={youtubeAccount}
+                onChange={(event) => setYoutubeAccount(event.target.value)}
+                placeholder="ex: @joaocanal ou URL"
+              />
+
+              <label htmlFor="auth-photo">Foto de perfil URL (opcional)</label>
+              <input
+                id="auth-photo"
+                className="retro-input"
+                type="url"
+                value={profilePhotoUrl}
+                onChange={(event) => setProfilePhotoUrl(event.target.value)}
+                placeholder="https://..."
               />
             </>
           ) : null}

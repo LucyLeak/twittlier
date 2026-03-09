@@ -28,7 +28,7 @@ Base inicial de rede social privada, estilo Twitter, com:
 
 Isso cria:
 
-- tabela `profiles`
+- tabela `accounts` com `user_id`, `name`, `handle` (@), `youtube_account` e `profile_photo_url`
 - tabela `posts`
 - politicas RLS
 - bucket publico `post-media` com politicas de upload por pasta do usuario
