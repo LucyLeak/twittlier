@@ -147,7 +147,7 @@ export default function NotificationsPage() {
                       <button
                         className="retro-button tw-small-button"
                         type="button"
-                        onClick={() => router.push(`/?post=${notification.post_id}`)}
+                        onClick={() => router.push(`/post/${notification.post_id}`)}
                       >
                         Ver post
                       </button>

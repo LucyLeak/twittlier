@@ -366,16 +366,25 @@ export default function ProfilePage() {
               <article className="tw-post-card" key={post.id}>
                 <div className="tw-post-header">
                   <time className="post-time">{new Date(post.created_at).toLocaleString("pt-BR")}</time>
-                  {(isOwnProfile || canModeratePosts) ? (
+                  <div className="tw-inline-actions">
                     <button
-                      className="retro-button danger tw-small-button"
+                      className="retro-button tw-small-button"
                       type="button"
-                      onClick={() => deletePost(post.id)}
-                      disabled={isActionLoading}
+                      onClick={() => router.push(`/post/${post.id}`)}
                     >
-                      Remover
+                      Abrir post
                     </button>
-                  ) : null}
+                    {(isOwnProfile || canModeratePosts) ? (
+                      <button
+                        className="retro-button danger tw-small-button"
+                        type="button"
+                        onClick={() => deletePost(post.id)}
+                        disabled={isActionLoading}
+                      >
+                        Remover
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
                 {post.content ? <p className="post-text">{post.content}</p> : null}
                 {post.media_url && post.media_type === "video" ? (

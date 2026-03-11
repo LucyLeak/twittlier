@@ -356,6 +356,14 @@ a {
   align-items: center;
 }
 
+.tw-share-box {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 2px dashed var(--line);
+  background: rgba(255, 255, 255, 0.5);
+}
+
 .tw-file-input-hidden {
   position: absolute;
   opacity: 0;
@@ -462,6 +470,14 @@ a {
   background: var(--surface-alt);
   border: 2px solid var(--line);
   padding: 8px;
+}
+
+.tw-post-card[role="link"] {
+  cursor: pointer;
+}
+
+.tw-post-card[role="link"]:hover {
+  filter: brightness(1.02);
 }
 
 .tw-post-header {
@@ -1001,6 +1017,10 @@ html[data-theme="dark"] .tw-upload-box {
 
 html[data-theme="dark"] .tw-upload-box[data-has-file="true"] {
   background: rgba(255, 255, 255, 0.1);
+}
+
+html[data-theme="dark"] .tw-share-box {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 html[data-theme="dark"] .tw-profile-photo-preview {

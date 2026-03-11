@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEventHandler, FormEventHandler } from "react";
+import type { ChangeEventHandler, FormEventHandler, MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
@@ -204,6 +204,7 @@ export default function FeedPage() {
   const [isEmailVisible, setIsEmailVisible] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [origin, setOrigin] = useState("");
 
   async function ensureLoggedUser(options?: { redirectOnMissing?: boolean }) {
     if (user) {
@@ -532,6 +533,11 @@ export default function FeedPage() {
     textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 220)}px`;
   }, [text]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setOrigin(window.location.origin);
+  }, []);
+
   const followingSet = useMemo(() => new Set(followingIds), [followingIds]);
   const blockedSet = useMemo(() => new Set(blockedIds), [blockedIds]);
   const blockedBySet = useMemo(() => new Set(blockedByIds), [blockedByIds]);
@@ -582,6 +588,51 @@ export default function FeedPage() {
       ? user.email
       : maskEmail(user.email)
     : "sem email";
+
+  function getPostUrl(postId: string) {
+    return origin ? `${origin}/post/${postId}` : `/post/${postId}`;
+  }
+
+  function openPostInNewTab(postId: string) {
+    const url = getPostUrl(postId);
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function handlePostCardClick(event: MouseEvent<HTMLElement>, postId: string) {
+    const target = event.target as HTMLElement | null;
+    if (!target) {
+      openPostInNewTab(postId);
+      return;
+    }
+    if (target.closest("button, a, video, img, input, textarea, select, label")) {
+      return;
+    }
+    openPostInNewTab(postId);
+  }
+
+  async function copyPostLink(postId: string) {
+    const url = getPostUrl(postId);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = url;
+        textarea.setAttribute("readonly", "true");
+        textarea.style.position = "absolute";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setStatus("Link do post copiado.");
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error ? caughtError.message : "Nao foi possivel copiar o link."
+      );
+    }
+  }
 
   async function handleMediaUpload(activeUser: User) {
     if (!file) return { mediaUrl: null as string | null, mediaType: null as MediaType };
@@ -1016,43 +1067,55 @@ export default function FeedPage() {
 
                   return (
                     <div key={post.id}>
-                      <article className="tw-post-card" aria-busy={isLikePending || isReplySubmitting}>
-                       <div className="tw-post-header">
-                         <div className="tw-post-author">
-                           {author?.profile_photo_url ? (
-                             <img className="tw-avatar" src={author.profile_photo_url} alt={`Foto de ${author.name}`} />
-                           ) : (
-                            <div className="tw-avatar fallback">
-                              {(author?.name || "?").slice(0, 1).toUpperCase()}
+                      <article
+                        className="tw-post-card"
+                        aria-busy={isLikePending || isReplySubmitting}
+                        role="link"
+                        tabIndex={0}
+                        onClick={(event) => handlePostCardClick(event, post.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openPostInNewTab(post.id);
+                          }
+                        }}
+                      >
+                         <div className="tw-post-header">
+                           <div className="tw-post-author">
+                             {author?.profile_photo_url ? (
+                               <img className="tw-avatar" src={author.profile_photo_url} alt={`Foto de ${author.name}`} />
+                             ) : (
+                              <div className="tw-avatar fallback">
+                                {(author?.name || "?").slice(0, 1).toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <div className="tw-post-name">
+                                {author?.name || "Anon"}
+                                {author?.is_moderator ? <span className="tw-role-chip">MOD</span> : null}
+                              </div>
+                              <div className="tw-post-handle">@{author?.handle || "anon"}</div>
                             </div>
-                          )}
-                          <div>
-                            <div className="tw-post-name">
-                              {author?.name || "Anon"}
-                              {author?.is_moderator ? <span className="tw-role-chip">MOD</span> : null}
-                            </div>
-                            <div className="tw-post-handle">@{author?.handle || "anon"}</div>
                           </div>
+                          <time className="post-time">{new Date(post.created_at).toLocaleString("pt-BR")}</time>
                         </div>
-                        <time className="post-time">{new Date(post.created_at).toLocaleString("pt-BR")}</time>
-                      </div>
 
-                       <div className="tw-post-body">
-                         {post.content ? <p className="post-text">{post.content}</p> : null}
-                         {post.media_url && post.media_type === "video" ? (
-                           <video className="tw-post-media" src={post.media_url} controls />
-                         ) : null}
-                         {post.media_url && post.media_type !== "video" ? (
-                           <img className="tw-post-media" src={post.media_url} alt="Midia do post" />
-                         ) : null}
-                       </div>
-
-                       {(likeInfo.count > 0 || replyCount > 0) ? (
-                         <div className="tw-post-engagement" aria-label="Resumo de interacoes">
-                           <span className="tw-meta-chip">{likeInfo.count} curtidas</span>
-                           <span className="tw-meta-chip">{replyCount} comentarios</span>
+                         <div className="tw-post-body">
+                           {post.content ? <p className="post-text">{post.content}</p> : null}
+                           {post.media_url && post.media_type === "video" ? (
+                             <video className="tw-post-media" src={post.media_url} controls />
+                           ) : null}
+                           {post.media_url && post.media_type !== "video" ? (
+                             <img className="tw-post-media" src={post.media_url} alt="Midia do post" />
+                           ) : null}
                          </div>
-                       ) : null}
+
+                         {(likeInfo.count > 0 || replyCount > 0) ? (
+                           <div className="tw-post-engagement" aria-label="Resumo de interacoes">
+                             <span className="tw-meta-chip">{likeInfo.count} curtidas</span>
+                             <span className="tw-meta-chip">{replyCount} comentarios</span>
+                           </div>
+                         ) : null}
 
                        <div className="tw-post-actions">
                          {author?.handle ? (
@@ -1064,6 +1127,21 @@ export default function FeedPage() {
                             Ver perfil
                           </button>
                         ) : null}
+                         <a
+                          className="retro-button tw-small-button"
+                          href={`/post/${post.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                         >
+                          Abrir post
+                         </a>
+                         <button
+                          className="retro-button tw-small-button"
+                          type="button"
+                          onClick={() => copyPostLink(post.id)}
+                         >
+                          Copiar link
+                         </button>
                          {currentAccount ? (
                            <>
                              <button
@@ -1173,14 +1251,14 @@ export default function FeedPage() {
                            </button>
                          </form>
                        ) : null}
-                     </article>
+                      </article>
                      <div className="tw-post-replies">
                       {repliesByParent[post.id]?.map((reply) => {
                         const replyAuthor = getAccountFromPost(reply);
                         const replyIsOwn = currentAccount?.user_id === reply.user_id;
 
                         return (
-                          <article className="tw-post-card tw-post-reply-card" key={reply.id}>
+                      <article className="tw-post-card tw-post-reply-card" key={reply.id}>
                            <div className="tw-post-header">
                              <div className="tw-post-author">
                                {replyAuthor?.profile_photo_url ? (
@@ -1287,7 +1365,7 @@ export default function FeedPage() {
                       className="tw-recommended-item"
                       key={post.id}
                       type="button"
-                      onClick={() => router.push(author?.handle ? `/perfil/${author.handle}` : "/")}
+                      onClick={() => router.push(`/post/${post.id}`)}
                     >
                       <strong>@{author?.handle || "anon"}</strong>
                       <span>{(post.content || "Midia").slice(0, 82)}</span>

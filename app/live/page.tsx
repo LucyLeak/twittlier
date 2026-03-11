@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
@@ -80,6 +80,7 @@ export default function LivePage() {
   const [pendingMessages, setPendingMessages] = useState<LiveMessage[]>([]);
   const [authorMap, setAuthorMap] = useState<Record<string, AccountRow>>({});
   const [text, setText] = useState("");
+  const [shareInput, setShareInput] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -124,6 +125,73 @@ export default function LivePage() {
     if (!origin || !roomOwnerAccount) return "";
     return `${origin}/live?stream=${roomOwnerAccount.handle}&overlay=1&key=SUA_CHAVE_OVERLAY`;
   }, [origin, roomOwnerAccount]);
+
+  function normalizePostShareLink(raw: string) {
+    const trimmed = raw.trim();
+    if (!trimmed) return "";
+
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      return trimmed;
+    }
+
+    if (trimmed.startsWith("/post/")) {
+      return origin ? `${origin}${trimmed}` : trimmed;
+    }
+
+    const uuidMatch = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidMatch.test(trimmed)) {
+      return origin ? `${origin}/post/${trimmed}` : `/post/${trimmed}`;
+    }
+
+    return trimmed;
+  }
+
+  function appendPostLinkToMessage() {
+    const link = normalizePostShareLink(shareInput);
+    if (!link) {
+      setError("Informe o link ou ID do post para compartilhar.");
+      return;
+    }
+    setText((current) => (current ? `${current}\n${link}` : link));
+    setShareInput("");
+    setStatus("Link do post adicionado na mensagem.");
+  }
+
+  function openPostFromShareInput() {
+    const link = normalizePostShareLink(shareInput);
+    if (!link) {
+      setError("Informe o link ou ID do post para abrir.");
+      return;
+    }
+    window.open(link, "_blank", "noopener,noreferrer");
+  }
+
+  function renderLiveContent(content: string) {
+    const parts: ReactNode[] = [];
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = urlRegex.exec(content)) !== null) {
+      const index = match.index;
+      if (index > lastIndex) {
+        parts.push(content.slice(lastIndex, index));
+      }
+      const url = match[0];
+      parts.push(
+        <a key={`${url}-${index}`} href={url} target="_blank" rel="noreferrer">
+          {url}
+        </a>
+      );
+      lastIndex = index + url.length;
+    }
+
+    if (lastIndex < content.length) {
+      parts.push(content.slice(lastIndex));
+    }
+
+    return parts;
+  }
 
   async function loadOverlayMessages(streamHandle: string, key: string) {
     const response = await fetch(
@@ -622,7 +690,9 @@ export default function LivePage() {
                     {new Date(message.created_at).toLocaleTimeString("pt-BR")}
                   </time>
                 </header>
-                {message.content ? <p className="tw-live-content">{message.content}</p> : null}
+                {message.content ? (
+                  <p className="tw-live-content">{renderLiveContent(message.content)}</p>
+                ) : null}
                 {message.media_url && message.media_type === "video" ? (
                   <video
                     className="tw-live-media"
@@ -707,6 +777,34 @@ export default function LivePage() {
             value={text}
             onChange={(event) => setText(event.target.value)}
           />
+          <div className="tw-share-box">
+            <label className="retro-muted" htmlFor="live-share-link">
+              Compartilhar post (link ou ID)
+            </label>
+            <div className="tw-inline-actions">
+              <input
+                id="live-share-link"
+                className="retro-input"
+                value={shareInput}
+                onChange={(event) => setShareInput(event.target.value)}
+                placeholder="Ex: https://twittlier.vercel.app/post/..."
+              />
+              <button className="retro-button" type="button" onClick={appendPostLinkToMessage}>
+                Adicionar link
+              </button>
+              <button
+                className="retro-button tw-small-button"
+                type="button"
+                onClick={openPostFromShareInput}
+                disabled={!shareInput.trim()}
+              >
+                Abrir
+              </button>
+            </div>
+            <p className="retro-muted">
+              O link vai junto da mensagem e abre em outra aba.
+            </p>
+          </div>
           <div className="tw-composer-toolbar">
             <input
               ref={fileInputRef}
@@ -782,7 +880,9 @@ export default function LivePage() {
                     </p>
                   ) : null}
 
-                  {message.content ? <p className="tw-live-content">{message.content}</p> : null}
+                  {message.content ? (
+                    <p className="tw-live-content">{renderLiveContent(message.content)}</p>
+                  ) : null}
                   {message.media_url && message.media_type === "video" ? (
                     <video className="tw-live-media" src={message.media_url} controls />
                   ) : null}
