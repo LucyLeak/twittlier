@@ -130,19 +130,41 @@ async function runSessionUserWithRetry(
 export async function getSessionUserWithRetry(
   supabase: SupabaseClient,
   retries = 3,
-  delayMs = 280
+  delayMs = 280,
+  timeoutMs = 4500
 ): Promise<SessionResult> {
   if (inFlightSessionRequest) {
     return inFlightSessionRequest;
   }
 
   const currentRequest = runSessionUserWithRetry(supabase, retries, delayMs);
-  inFlightSessionRequest = currentRequest;
+  const shouldTimeout = Number.isFinite(timeoutMs) && timeoutMs > 0;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  const timeoutRequest = shouldTimeout
+    ? new Promise<SessionResult>((resolve) => {
+        timeoutId = setTimeout(() => {
+          resolve({
+            user: null,
+            error: new Error("Tempo limite ao validar sessao. Recarregue a pagina.")
+          });
+        }, timeoutMs);
+      })
+    : null;
+
+  const wrappedRequest = timeoutRequest
+    ? Promise.race([currentRequest, timeoutRequest])
+    : currentRequest;
+
+  inFlightSessionRequest = wrappedRequest;
 
   try {
-    return await currentRequest;
+    return await wrappedRequest;
   } finally {
-    if (inFlightSessionRequest === currentRequest) {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    if (inFlightSessionRequest === wrappedRequest) {
       inFlightSessionRequest = null;
     }
   }

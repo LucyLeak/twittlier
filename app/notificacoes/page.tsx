@@ -27,7 +27,12 @@ export default function NotificationsPage() {
     const supabase = getSupabaseBrowserClient();
     const { user: sessionUser, error: sessionError } = await getSessionUserWithRetry(supabase);
     if (!sessionUser) {
-      if (sessionError) setError(sessionError.message);
+      if (sessionError) {
+        setError(sessionError.message);
+      } else {
+        setError("Sessao expirada. Faca login novamente.");
+      }
+      setIsLoading(false);
       router.replace("/auth");
       return;
     }

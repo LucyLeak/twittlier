@@ -14,7 +14,10 @@ export async function proxy(request: NextRequest) {
   const isOverlayRoute = pathname === "/live" && searchParams.get("overlay") === "1";
 
   const isAccessRoute =
-    pathname === "/acesso" || pathname === "/api/access" || pathname === "/api/live-overlay";
+    pathname === "/acesso" ||
+    pathname === "/api/access" ||
+    pathname === "/api/live-overlay" ||
+    pathname === "/api/live-cleanup";
 
   if (!hasAccess && !isAccessRoute && !(isOverlayRoute && hasValidOverlayKey)) {
     return NextResponse.redirect(new URL("/acesso", request.url));

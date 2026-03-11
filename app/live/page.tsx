@@ -27,6 +27,10 @@ type LiveMessage = {
 
 const LIVE_POLL_MS = 3200;
 const OVERLAY_MAX_MESSAGES = 5;
+const LIVE_RETENTION_HOURS = 6;
+const LIVE_MAX_MESSAGES = 200;
+const LIVE_MAX_PENDING = 80;
+const LIVE_CLEANUP_COOLDOWN_MS = 5 * 60 * 1000;
 
 type OverlayApiMessage = {
   id: string;
@@ -61,6 +65,7 @@ function extractStoragePathFromPublicUrl(url: string, bucketName: string) {
 export default function LivePage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const lastCleanupRef = useRef(0);
 
   const [origin, setOrigin] = useState("");
   const [overlayMode, setOverlayMode] = useState(false);
@@ -197,6 +202,7 @@ export default function LivePage() {
   async function loadRoomMessages(currentRoomOwner: AccountRow, currentViewer: AccountRow) {
     const supabase = getSupabaseBrowserClient();
     const moderationAllowed = currentViewer.is_moderator;
+    const cutoffIso = new Date(Date.now() - LIVE_RETENTION_HOURS * 60 * 60 * 1000).toISOString();
 
     const { data: rawMessages, error: messagesError } = await supabase
       .from("live_messages")
@@ -204,8 +210,9 @@ export default function LivePage() {
         "id, room_owner_user_id, author_user_id, content, media_url, media_type, moderation_status, moderation_reason, moderated_by_user_id, moderated_at, created_at"
       )
       .eq("room_owner_user_id", currentRoomOwner.user_id)
+      .gte("created_at", cutoffIso)
       .order("created_at", { ascending: true })
-      .limit(250);
+      .limit(LIVE_MAX_MESSAGES);
 
     if (messagesError) throw messagesError;
     const typedMessages = (rawMessages as LiveMessage[]) ?? [];
@@ -238,12 +245,42 @@ export default function LivePage() {
         )
         .eq("room_owner_user_id", currentRoomOwner.user_id)
         .eq("moderation_status", "pending")
+        .gte("created_at", cutoffIso)
         .order("created_at", { ascending: true })
-        .limit(100);
+        .limit(LIVE_MAX_PENDING);
       if (pendingError) throw pendingError;
       setPendingMessages((rawPending as LiveMessage[]) ?? []);
     } else {
       setPendingMessages([]);
+    }
+
+    cleanupOldLiveMessages(currentRoomOwner.user_id);
+  }
+
+  async function cleanupOldLiveMessages(roomOwnerUserId: string) {
+    const now = Date.now();
+    if (now - lastCleanupRef.current < LIVE_CLEANUP_COOLDOWN_MS) return;
+    lastCleanupRef.current = now;
+
+    try {
+      const response = await fetch("/api/live-cleanup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomOwnerUserId,
+          retentionHours: LIVE_RETENTION_HOURS
+        })
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        console.warn("Falha ao limpar mensagens antigas:", payload?.error || response.statusText);
+      }
+    } catch (caughtError) {
+      console.warn(
+        "Falha ao limpar mensagens antigas:",
+        caughtError instanceof Error ? caughtError.message : caughtError
+      );
     }
   }
 

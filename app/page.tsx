@@ -297,7 +297,8 @@ export default function FeedPage() {
     setBlockedByIds((blockedByRes.data || []).map((item) => item.blocker_user_id));
     setAccountPool(loadedAccounts);
 
-    await loadPostLikes(loadedPosts.map((post) => post.id), activeAccount.user_id);
+    const topLevelIds = loadedPosts.filter((post) => !post.parent_post_id).map((post) => post.id);
+    await loadPostLikes(topLevelIds, activeAccount.user_id);
   }
 
   async function loadPostLikes(postIds: string[], currentUserId: string) {
@@ -344,38 +345,48 @@ export default function FeedPage() {
       const { activeAccount } = interactionContext;
       const supabase = getSupabaseBrowserClient();
       const currentLikes = postLikes[post.id] ?? { count: 0, liked: false };
-
-      if (currentLikes.liked) {
-        const { error } = await supabase
-          .from("post_likes")
-          .delete()
-          .match({ post_id: post.id, user_id: activeAccount.user_id });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("post_likes").insert({
-          post_id: post.id,
-          user_id: activeAccount.user_id
-        });
-        if (error) throw error;
-
-        if (post.user_id !== activeAccount.user_id) {
-          await supabase.from("notifications").insert({
-            recipient_user_id: post.user_id,
-            actor_user_id: activeAccount.user_id,
-            type: "like",
-            post_id: post.id
-          });
-        }
-      }
+      const optimisticLikes = {
+        count: currentLikes.liked ? Math.max(0, currentLikes.count - 1) : currentLikes.count + 1,
+        liked: !currentLikes.liked
+      };
 
       setPostLikes((prev) => ({
         ...prev,
-        [post.id]: {
-          count: currentLikes.liked ? Math.max(0, currentLikes.count - 1) : currentLikes.count + 1,
-          liked: !currentLikes.liked
-        }
+        [post.id]: optimisticLikes
       }));
-      setStatus(currentLikes.liked ? "Curtida removida." : "Post curtido.");
+
+      try {
+        if (currentLikes.liked) {
+          const { error } = await supabase
+            .from("post_likes")
+            .delete()
+            .match({ post_id: post.id, user_id: activeAccount.user_id });
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("post_likes").insert({
+            post_id: post.id,
+            user_id: activeAccount.user_id
+          });
+          if (error) throw error;
+
+          if (post.user_id !== activeAccount.user_id) {
+            await supabase.from("notifications").insert({
+              recipient_user_id: post.user_id,
+              actor_user_id: activeAccount.user_id,
+              type: "like",
+              post_id: post.id
+            });
+          }
+        }
+
+        setStatus(currentLikes.liked ? "Curtida removida." : "Post curtido.");
+      } catch (caughtError) {
+        setPostLikes((prev) => ({
+          ...prev,
+          [post.id]: currentLikes
+        }));
+        throw caughtError;
+      }
     } catch (caughtError) {
       setError(getActionErrorMessage(caughtError, "Falha ao processar curtida."));
     } finally {
@@ -398,13 +409,17 @@ export default function FeedPage() {
         return false;
       }
 
-      const { activeUser, activeAccount } = interactionContext;
+      const { activeAccount } = interactionContext;
       const supabase = getSupabaseBrowserClient();
-      const { error: insertError } = await supabase.from("posts").insert({
-        user_id: activeAccount.user_id,
-        parent_post_id: post.id,
-        content: cleanText
-      });
+      const { data: insertedReply, error: insertError } = await supabase
+        .from("posts")
+        .insert({
+          user_id: activeAccount.user_id,
+          parent_post_id: post.id,
+          content: cleanText
+        })
+        .select("id, user_id, parent_post_id, content, media_url, media_type, created_at")
+        .single();
       if (insertError) throw insertError;
 
       if (post.user_id !== activeAccount.user_id) {
@@ -416,7 +431,16 @@ export default function FeedPage() {
         });
       }
 
-      await refreshState(activeUser, activeAccount);
+      if (insertedReply) {
+        const optimisticReply: PostRecord = {
+          ...(insertedReply as PostQueryRow),
+          accounts: activeAccount
+        };
+        setPosts((currentPosts) => [
+          optimisticReply,
+          ...currentPosts.filter((item) => item.id !== optimisticReply.id)
+        ]);
+      }
       const replyTarget = getAccountFromPost(post)?.handle || "anon";
       setStatus(`Comentario publicado para @${replyTarget}.`);
       return true;
@@ -630,12 +654,6 @@ export default function FeedPage() {
         }));
       }
       setStatus("Post publicado.");
-      refreshState(activeUser, activeAccount).catch((refreshError) => {
-        console.warn(
-          "Falha ao atualizar timeline depois de publicar:",
-          refreshError instanceof Error ? refreshError.message : refreshError
-        );
-      });
     } catch (caughtError) {
       const messageText =
         caughtError instanceof Error ? caughtError.message : "Erro ao publicar.";
@@ -680,7 +698,11 @@ export default function FeedPage() {
         if (insertError) throw insertError;
         setStatus(`Voce agora segue @${handle}.`);
       }
-      await refreshState(user || undefined, currentAccount);
+      setFollowingIds((currentIds) =>
+        alreadyFollowing
+          ? currentIds.filter((id) => id !== targetUserId)
+          : [...currentIds, targetUserId]
+      );
     } catch (caughtError) {
       const messageText =
         caughtError instanceof Error ? caughtError.message : "Falha no follow.";
@@ -728,7 +750,14 @@ export default function FeedPage() {
         if (cleanupReverseError) throw cleanupReverseError;
         setStatus(`@${handle} bloqueado.`);
       }
-      await refreshState(user || undefined, currentAccount);
+      setBlockedIds((currentIds) =>
+        alreadyBlocked
+          ? currentIds.filter((id) => id !== targetUserId)
+          : [...currentIds, targetUserId]
+      );
+      if (!alreadyBlocked) {
+        setFollowingIds((currentIds) => currentIds.filter((id) => id !== targetUserId));
+      }
     } catch (caughtError) {
       const messageText =
         caughtError instanceof Error ? caughtError.message : "Falha no bloqueio.";
@@ -748,7 +777,22 @@ export default function FeedPage() {
       const { error: deleteError } = await supabase.from("posts").delete().eq("id", postId);
       if (deleteError) throw deleteError;
       setStatus("Post removido.");
-      await refreshState(user || undefined, currentAccount);
+      setPosts((currentPosts) => {
+        const removeIds = new Set<string>([postId]);
+        for (const post of currentPosts) {
+          if (post.parent_post_id === postId) {
+            removeIds.add(post.id);
+          }
+        }
+        setPostLikes((currentLikes) => {
+          const nextLikes = { ...currentLikes };
+          for (const id of removeIds) {
+            delete nextLikes[id];
+          }
+          return nextLikes;
+        });
+        return currentPosts.filter((post) => !removeIds.has(post.id));
+      });
     } catch (caughtError) {
       const messageText =
         caughtError instanceof Error ? caughtError.message : "Nao foi possivel remover o post.";

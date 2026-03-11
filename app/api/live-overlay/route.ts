@@ -12,6 +12,9 @@ type LiveMessageRow = {
   created_at: string;
 };
 
+const LIVE_OVERLAY_RETENTION_HOURS = 6;
+const LIVE_OVERLAY_MAX_MESSAGES = 120;
+
 function getAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -69,13 +72,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Sala de live nao encontrada." }, { status: 404 });
     }
 
+    const cutoffIso = new Date(
+      Date.now() - LIVE_OVERLAY_RETENTION_HOURS * 60 * 60 * 1000
+    ).toISOString();
+
     const { data: messagesRaw, error: messagesError } = await admin
       .from("live_messages")
       .select("id, room_owner_user_id, author_user_id, content, media_url, media_type, created_at")
       .eq("room_owner_user_id", roomOwner.user_id)
       .eq("moderation_status", "approved")
+      .gte("created_at", cutoffIso)
       .order("created_at", { ascending: true })
-      .limit(250);
+      .limit(LIVE_OVERLAY_MAX_MESSAGES);
 
     if (messagesError) {
       return NextResponse.json({ error: messagesError.message }, { status: 400 });

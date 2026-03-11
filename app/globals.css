@@ -887,16 +887,16 @@ a {
 }
 
 html[data-theme="dark"] {
-  --page-bg: #0b0c11;
-  --page-grid: #1b1b22;
-  --surface: #12131a;
-  --surface-alt: #1a1c25;
-  --ink: #f1f1f5;
-  --ink-soft: #b2b2c5;
-  --line: #2a2b34;
-  --accent: #f2634b;
-  --accent-cool: #7aa9ff;
-  --danger: #f07171;
+  --page-bg: #0c1117;
+  --page-grid: #1b2431;
+  --surface: #151b25;
+  --surface-alt: #1d2533;
+  --ink: #f5f7fb;
+  --ink-soft: #b7c1d4;
+  --line: #2f3947;
+  --accent: #ff6b5a;
+  --accent-cool: #6fb0ff;
+  --danger: #ff7b7b;
   color-scheme: dark;
 }
 
@@ -904,7 +904,20 @@ html[data-theme="dark"] body {
   background-image:
     linear-gradient(var(--page-grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--page-grid) 1px, transparent 1px),
-    radial-gradient(circle at 20% 20%, rgba(122, 169, 255, 0.08), transparent 42%);
+    radial-gradient(circle at 18% 12%, rgba(111, 176, 255, 0.12), transparent 44%),
+    radial-gradient(circle at 85% 15%, rgba(255, 107, 90, 0.08), transparent 40%);
+}
+
+html[data-theme="dark"] .retro-window,
+html[data-theme="dark"] .tw-card {
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.55);
+}
+
+html[data-theme="dark"] .retro-title,
+html[data-theme="dark"] .tw-section-title {
+  background: #1f2633;
+  color: #f8fafc;
+  border-color: #2f3947;
 }
 
 html[data-theme="dark"] .retro-input,
@@ -912,7 +925,7 @@ html[data-theme="dark"] .retro-textarea,
 html[data-theme="dark"] .retro-file,
 html[data-theme="dark"] .tw-composer-input,
 html[data-theme="dark"] .tw-live-code {
-  background: #0f1118;
+  background: #0f141c;
   color: var(--ink);
 }
 
@@ -923,16 +936,17 @@ html[data-theme="dark"] .tw-composer-input:focus {
 }
 
 html[data-theme="dark"] .retro-button {
-  background: #202330;
+  background: #222b3a;
+  border-color: #364255;
   color: var(--ink);
 }
 
 html[data-theme="dark"] .retro-button:hover {
-  background: #2a2e3d;
+  background: #2a3648;
 }
 
 html[data-theme="dark"] .retro-button.danger {
-  background: rgba(240, 113, 113, 0.14);
+  background: rgba(255, 123, 123, 0.16);
   color: var(--danger);
 }
 
