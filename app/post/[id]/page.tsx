@@ -32,6 +32,14 @@ function isValidPostId(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
+function getErrorMessage(caughtError: unknown, fallback: string) {
+  if (caughtError instanceof Error) return caughtError.message;
+  if (caughtError && typeof caughtError === "object" && "message" in caughtError) {
+    return String((caughtError as { message?: unknown }).message || fallback);
+  }
+  return fallback;
+}
+
 export default function PostDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -111,9 +119,7 @@ export default function PostDetailPage() {
 
     const { data: postRaw, error: postError } = await supabase
       .from("posts")
-      .select(
-        "id, user_id, parent_post_id, content, media_url, media_type, created_at, accounts (user_id, name, handle, youtube_account, profile_photo_url, theme_preference, notifications_enabled, email_verified_optional, email_verified_at, is_moderator)"
-      )
+      .select("id, user_id, parent_post_id, content, media_url, media_type, created_at")
       .eq("id", postId)
       .maybeSingle();
 
@@ -123,19 +129,49 @@ export default function PostDetailPage() {
       return;
     }
 
-    setPost(postRaw as PostRecord);
-
     const { data: repliesRaw, error: repliesError } = await supabase
       .from("posts")
-      .select(
-        "id, user_id, parent_post_id, content, media_url, media_type, created_at, accounts (user_id, name, handle, youtube_account, profile_photo_url, theme_preference, notifications_enabled, email_verified_optional, email_verified_at, is_moderator)"
-      )
+      .select("id, user_id, parent_post_id, content, media_url, media_type, created_at")
       .eq("parent_post_id", postId)
       .order("created_at", { ascending: true })
       .limit(200);
 
     if (repliesError) throw repliesError;
-    setReplies((repliesRaw as PostRecord[]) ?? []);
+    const repliesList = ((repliesRaw as PostQueryRow[]) ?? []);
+
+    const authorIds = new Set<string>();
+    authorIds.add((postRaw as PostQueryRow).user_id);
+    for (const reply of repliesList) {
+      authorIds.add(reply.user_id);
+    }
+
+    const accountMap = new Map<string, AccountRow>();
+    if (authorIds.size > 0) {
+      const { data: accountsRaw, error: accountsError } = await supabase
+        .from("accounts")
+        .select(
+          "user_id, name, handle, youtube_account, profile_photo_url, theme_preference, notifications_enabled, email_verified_optional, email_verified_at, is_moderator"
+        )
+        .in("user_id", Array.from(authorIds));
+
+      if (!accountsError) {
+        for (const account of (accountsRaw as AccountRow[]) ?? []) {
+          accountMap.set(account.user_id, account);
+        }
+      }
+    }
+
+    const postWithAccount: PostRecord = {
+      ...(postRaw as PostQueryRow),
+      accounts: accountMap.get((postRaw as PostQueryRow).user_id) ?? null
+    };
+    const repliesWithAccounts = repliesList.map((reply) => ({
+      ...(reply as PostQueryRow),
+      accounts: accountMap.get(reply.user_id) ?? null
+    }));
+
+    setPost(postWithAccount);
+    setReplies(repliesWithAccounts);
 
     const { data: likesRaw, error: likesError } = await supabase
       .from("post_likes")
@@ -190,7 +226,7 @@ export default function PostDetailPage() {
       setStatus(currentLikes.liked ? "Curtida removida." : "Post curtido.");
     } catch (caughtError) {
       setPostLikes(currentLikes);
-      setError(caughtError instanceof Error ? caughtError.message : "Falha ao processar curtida.");
+      setError(getErrorMessage(caughtError, "Falha ao processar curtida."));
     } finally {
       setIsLikePending(false);
     }
@@ -203,9 +239,7 @@ export default function PostDetailPage() {
     loadPost()
       .catch((caughtError) => {
         if (!active) return;
-        const messageText =
-          caughtError instanceof Error ? caughtError.message : "Falha ao carregar post.";
-        setError(messageText);
+        setError(getErrorMessage(caughtError, "Falha ao carregar post."));
       })
       .finally(() => {
         if (active) setIsLoading(false);
