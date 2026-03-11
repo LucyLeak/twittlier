@@ -298,7 +298,12 @@ export default function FeedPage() {
     setAccountPool(loadedAccounts);
 
     const topLevelIds = loadedPosts.filter((post) => !post.parent_post_id).map((post) => post.id);
-    await loadPostLikes(topLevelIds, activeAccount.user_id);
+    loadPostLikes(topLevelIds, activeAccount.user_id).catch((likeError) => {
+      console.warn(
+        "Falha ao carregar curtidas:",
+        likeError instanceof Error ? likeError.message : likeError
+      );
+    });
   }
 
   async function loadPostLikes(postIds: string[], currentUserId: string) {
