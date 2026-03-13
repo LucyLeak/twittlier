@@ -494,8 +494,8 @@ export default function LivePage() {
       setError("Formato de midia invalido.");
       return;
     }
-    if (selected.size > 20 * 1024 * 1024) {
-      setError("A midia precisa ter no maximo 20MB.");
+    if (selected.size > 200 * 1024 * 1024) {
+      setError("A midia precisa ter no maximo 200MB.");
       return;
     }
     setError("");
