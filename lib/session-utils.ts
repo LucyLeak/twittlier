@@ -6,6 +6,7 @@ type SessionResult = {
 };
 
 let inFlightSessionRequest: Promise<SessionResult> | null = null;
+const SESSION_TIMEOUT_MESSAGE = "Conexao lenta ao validar sessao. Tente novamente em instantes.";
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -33,6 +34,16 @@ export function isSessionLockError(error: Error | AuthError | null) {
         message.includes("another request") ||
         message.includes("navigator.locks") ||
         message.includes("broken by another request")))
+  );
+}
+
+export function isSessionTimeoutError(error: Error | AuthError | null) {
+  if (!error) return false;
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("tempo limite ao validar sessao") ||
+    message.includes("conexao lenta ao validar sessao") ||
+    message.includes("timeout")
   );
 }
 
@@ -131,7 +142,7 @@ export async function getSessionUserWithRetry(
   supabase: SupabaseClient,
   retries = 3,
   delayMs = 280,
-  timeoutMs = 4500
+  timeoutMs = 12000
 ): Promise<SessionResult> {
   if (inFlightSessionRequest) {
     return inFlightSessionRequest;
@@ -146,7 +157,7 @@ export async function getSessionUserWithRetry(
         timeoutId = setTimeout(() => {
           resolve({
             user: null,
-            error: new Error("Tempo limite ao validar sessao. Recarregue a pagina.")
+            error: new Error(SESSION_TIMEOUT_MESSAGE)
           });
         }, timeoutMs);
       })

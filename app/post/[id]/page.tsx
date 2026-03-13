@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { AccountRow, ensureAccountExists, getSeedFromUser } from "@/lib/account-utils";
-import { getSessionUserWithRetry } from "@/lib/session-utils";
+import { getSessionUserWithRetry, isSessionLockError, isSessionTimeoutError } from "@/lib/session-utils";
 
 type MediaType = "image" | "video" | "gif" | null;
 
@@ -126,7 +126,10 @@ export default function PostDetailPage() {
     const { user: sessionUser, error: sessionError } = await getSessionUserWithRetry(supabase);
     if (!sessionUser) {
       if (sessionError) {
-        setError(sessionError.message);
+        setError(getErrorMessage(sessionError, "Falha ao validar sessao."));
+        if (isSessionTimeoutError(sessionError) || isSessionLockError(sessionError)) {
+          return;
+        }
       } else {
         setError("Sessao expirada. Faca login novamente.");
       }

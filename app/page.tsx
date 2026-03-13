@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { AccountRow, ensureAccountExists, getSeedFromUser } from "@/lib/account-utils";
-import { getSessionUserWithRetry, isSessionLockError } from "@/lib/session-utils";
+import { getSessionUserWithRetry, isSessionLockError, isSessionTimeoutError } from "@/lib/session-utils";
 
 type MediaType = "image" | "video" | "gif" | null;
 
@@ -193,6 +193,9 @@ function getActionErrorMessage(caughtError: unknown, fallback: string) {
     if (isSessionLockError(caughtError)) {
       return "Sessao em sincronizacao. Tente novamente em instantes.";
     }
+    if (isSessionTimeoutError(caughtError)) {
+      return "Conexao lenta ao validar sessao. Tente novamente em instantes.";
+    }
 
     return caughtError.message || fallback;
   }
@@ -243,7 +246,11 @@ export default function FeedPage() {
         setError("Sua sessao ainda nao foi confirmada. Tente novamente em instantes.");
       }
 
-      if ((options?.redirectOnMissing ?? true) && !isSessionLockError(sessionError)) {
+      if (
+        (options?.redirectOnMissing ?? true) &&
+        !isSessionLockError(sessionError) &&
+        !isSessionTimeoutError(sessionError)
+      ) {
         router.replace("/auth");
       }
       return null;
