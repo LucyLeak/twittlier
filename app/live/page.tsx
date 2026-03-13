@@ -31,6 +31,7 @@ const LIVE_RETENTION_HOURS = 6;
 const LIVE_MAX_MESSAGES = 200;
 const LIVE_MAX_PENDING = 80;
 const LIVE_CLEANUP_COOLDOWN_MS = 5 * 60 * 1000;
+const OVERLAY_NOTIFICATION_SOUND_URL = "/soundsOBS/obs-notification.mp3";
 
 type OverlayApiMessage = {
   id: string;
@@ -67,6 +68,9 @@ export default function LivePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const lastCleanupRef = useRef(0);
   const overlayFeedRef = useRef<HTMLDivElement | null>(null);
+  const overlayAudioRef = useRef<HTMLAudioElement | null>(null);
+  const overlaySeenMessageIdsRef = useRef<Set<string>>(new Set());
+  const overlayInitializedRef = useRef(false);
 
   const [origin, setOrigin] = useState("");
   const [overlayMode, setOverlayMode] = useState(false);
@@ -121,6 +125,12 @@ export default function LivePage() {
       document.body.classList.remove("tw-overlay-body");
     };
   }, [overlayMode]);
+
+  useEffect(() => {
+    if (!overlayMode) return;
+    overlaySeenMessageIdsRef.current = new Set();
+    overlayInitializedRef.current = false;
+  }, [overlayMode, requestedHandle, overlayAccessKey]);
 
   const embedUrl = useMemo(() => {
     if (!origin || !roomOwnerAccount) return "";
@@ -488,6 +498,38 @@ export default function LivePage() {
   }, [overlayMode, messages]);
 
   useEffect(() => {
+    if (!overlayMode) return;
+    if (messages.length === 0) return;
+
+    const audioTemplate = overlayAudioRef.current;
+    if (!audioTemplate) return;
+
+    const seen = overlaySeenMessageIdsRef.current;
+    if (!overlayInitializedRef.current) {
+      for (const message of messages) {
+        seen.add(message.id);
+      }
+      overlayInitializedRef.current = true;
+      return;
+    }
+
+    const newMessages = messages.filter((message) => !seen.has(message.id));
+    if (newMessages.length === 0) return;
+
+    for (const message of newMessages) {
+      seen.add(message.id);
+      const clone = audioTemplate.cloneNode(true) as HTMLAudioElement;
+      clone.volume = 0.5;
+      clone.currentTime = 0;
+      clone.play().catch(() => null);
+    }
+
+    if (seen.size > 400) {
+      overlaySeenMessageIdsRef.current = new Set(messages.map((message) => message.id));
+    }
+  }, [overlayMode, messages]);
+
+  useEffect(() => {
     if (!file) {
       setFilePreviewUrl("");
       return;
@@ -688,6 +730,7 @@ export default function LivePage() {
   if (overlayMode) {
     return (
       <main className="tw-live-overlay">
+        <audio ref={overlayAudioRef} src={OVERLAY_NOTIFICATION_SOUND_URL} preload="auto" />
         <div className="tw-live-feed" ref={overlayFeedRef}>
           {visibleMessages.map((message) => {
             if (message.moderation_status !== "approved") return null;
