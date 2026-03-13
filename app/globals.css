@@ -1001,7 +1001,13 @@ a {
   width: calc(100vw - 20px);
   margin: 0 10px 10px;
   max-height: calc(100vh - 20px);
-  overflow: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.tw-live-overlay .tw-live-feed::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .tw-live-overlay .tw-live-message {

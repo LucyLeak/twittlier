@@ -66,6 +66,7 @@ export default function LivePage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const lastCleanupRef = useRef(0);
+  const overlayFeedRef = useRef<HTMLDivElement | null>(null);
 
   const [origin, setOrigin] = useState("");
   const [overlayMode, setOverlayMode] = useState(false);
@@ -477,6 +478,16 @@ export default function LivePage() {
   }, [overlayMode, requestedHandle, overlayAccessKey, roomOwnerAccount, viewerAccount]);
 
   useEffect(() => {
+    if (!overlayMode) return;
+    const feed = overlayFeedRef.current;
+    if (!feed) return;
+    const raf = requestAnimationFrame(() => {
+      feed.scrollTop = feed.scrollHeight;
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [overlayMode, messages]);
+
+  useEffect(() => {
     if (!file) {
       setFilePreviewUrl("");
       return;
@@ -494,8 +505,8 @@ export default function LivePage() {
       setError("Formato de midia invalido.");
       return;
     }
-    if (selected.size > 200 * 1024 * 1024) {
-      setError("A midia precisa ter no maximo 200MB.");
+    if (selected.size > 20 * 1024 * 1024) {
+      setError("A midia precisa ter no maximo 20MB.");
       return;
     }
     setError("");
@@ -677,7 +688,7 @@ export default function LivePage() {
   if (overlayMode) {
     return (
       <main className="tw-live-overlay">
-        <div className="tw-live-feed">
+        <div className="tw-live-feed" ref={overlayFeedRef}>
           {visibleMessages.map((message) => {
             if (message.moderation_status !== "approved") return null;
             const author =
