@@ -308,6 +308,19 @@ export default function SettingsPage() {
     }
   }
 
+  async function signOut() {
+    const supabase = getSupabaseBrowserClient();
+    await supabase.auth.signOut();
+    router.replace("/auth");
+  }
+
+  async function lockApp() {
+    const supabase = getSupabaseBrowserClient();
+    await fetch("/api/access", { method: "DELETE" });
+    await supabase.auth.signOut();
+    router.replace("/acesso");
+  }
+
   if (isLoading) {
     return (
       <main className="tw-page-shell">
@@ -323,182 +336,212 @@ export default function SettingsPage() {
     <main className="tw-page-shell">
       <section className="tw-card">
         <h1 className="tw-section-title">Configuracoes da conta</h1>
-        <div className="tw-inline-actions">
-          <button className="retro-button" type="button" onClick={() => router.push("/")}>
-            Voltar ao feed
-          </button>
-          <button className="retro-button" type="button" onClick={() => router.push("/live")}>
-            Live
-          </button>
-          {account?.handle ? (
-            <button
-              className="retro-button"
-              type="button"
-              onClick={() => router.push(`/perfil/${account.handle}`)}
-            >
-              Ver meu perfil
-            </button>
-          ) : null}
-        </div>
-      </section>
-
-      <section className="tw-card">
-        <h2 className="tw-section-title">Perfil</h2>
-        <form className="retro-form" onSubmit={onSaveProfile}>
-          <label htmlFor="settings-name">Nome</label>
-          <input
-            id="settings-name"
-            className="retro-input"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Seu nome publico"
-          />
-
-          <label htmlFor="settings-handle">@</label>
-          <input
-            id="settings-handle"
-            className="retro-input"
-            value={handle}
-            onChange={(event) => setHandle(event.target.value)}
-            placeholder="ex: joao_90"
-          />
-
-          <label htmlFor="settings-youtube">YouTube</label>
-          <input
-            id="settings-youtube"
-            className="retro-input"
-            value={youtubeAccount}
-            onChange={(event) => setYoutubeAccount(event.target.value)}
-            placeholder="@canal ou URL"
-          />
-
-          <label htmlFor="settings-photo-file">Foto de perfil (arquivo)</label>
-          <input
-            ref={photoInputRef}
-            id="settings-photo-file"
-            className="tw-file-input-hidden"
-            type="file"
-            accept="image/*"
-            onChange={onPhotoFileChange}
-          />
-          <label
-            htmlFor="settings-photo-file"
-            className="tw-upload-box"
-            data-has-file={profilePhotoFile ? "true" : "false"}
-          >
-            <span className="tw-upload-title">
-              {profilePhotoFile ? "Nova foto selecionada" : "Selecionar foto de perfil"}
-            </span>
-            <span className="tw-upload-meta">
-              {profilePhotoFile
-                ? `${profilePhotoFile.name} (${formatBytes(profilePhotoFile.size)})`
-                : "Clique para escolher uma imagem"}
-            </span>
-          </label>
-
-          {profilePhotoPreviewUrl ? (
-            <img className="tw-profile-photo-preview" src={profilePhotoPreviewUrl} alt="Previa da foto" />
-          ) : (
-            <p className="retro-muted">Sem foto de perfil.</p>
-          )}
-
-          <div className="tw-inline-actions">
-            <button className="retro-button" type="button" onClick={removePhotoSelection}>
-              Remover foto atual
-            </button>
-          </div>
-
-          <button className="retro-button primary" type="submit" disabled={isSaving}>
-            {isSaving ? "Salvando..." : "Salvar perfil"}
-          </button>
-        </form>
-      </section>
-
-      <section className="tw-card">
-        <h2 className="tw-section-title">Aparencia & notificacoes</h2>
-        <div className="retro-form">
-          <label htmlFor="settings-theme">Tema</label>
-          <select
-            id="settings-theme"
-            className="retro-input"
-            value={themePreference}
-            onChange={(event) => setThemePreference(event.target.value as "light" | "dark")}
-          >
-            <option value="light">Claro</option>
-            <option value="dark">Escuro</option>
-          </select>
-
-          <label className="retro-label" htmlFor="settings-notifications">
-            Notificacoes
-          </label>
-          <div className="tw-inline-actions">
-            <label className="retro-input" style={{ margin: 0, padding: "7px 8px" }}>
-              <input
-                id="settings-notifications"
-                type="checkbox"
-                checked={notificationsEnabled}
-                onChange={(event) => setNotificationsEnabled(event.target.checked)}
-              />
-              <span style={{ marginLeft: 8 }}>Ativar notificacoes</span>
-            </label>
-          </div>
-        </div>
-      </section>
-
-      <section className="tw-card">
-        <h2 className="tw-section-title">Email opcional</h2>
-        <p className="retro-muted">
-          Status atual: {account?.email_verified_optional ? "Confirmado" : "Pendente"}
-        </p>
-        <p className="retro-muted">Data: {formatDate(account?.email_verified_at || null)}</p>
-        <button className="retro-button primary" type="button" onClick={confirmEmailNow} disabled={isSaving}>
-          {isSaving ? "Salvando..." : "Confirmar email"}
-        </button>
-      </section>
-
-      <section className="tw-card">
-        <h2 className="tw-section-title">Permissoes</h2>
-        <p className="retro-muted">
-          Perfil atual: {account?.is_moderator ? "Moderador" : "Usuario comum"}
-        </p>
-        {account?.is_moderator ? (
-          <div className="retro-form">
-            <label htmlFor="mod-target">@ do usuario</label>
-            <input
-              id="mod-target"
-              className="retro-input"
-              value={modTargetHandle}
-              onChange={(event) => setModTargetHandle(event.target.value)}
-              placeholder="ex: maria_90"
-            />
-            <div className="tw-inline-actions">
-              <button
-                className="retro-button primary"
-                type="button"
-                onClick={() => setModeratorRole(true)}
-                disabled={isModSaving}
-              >
-                Tornar moderador
-              </button>
-              <button
-                className="retro-button danger"
-                type="button"
-                onClick={() => setModeratorRole(false)}
-                disabled={isModSaving}
-              >
-                Remover moderador
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </section>
-
-      <section className="tw-card">
-        <h2 className="tw-section-title">Sessao</h2>
-        <p className="retro-muted">Logado como: {user?.email || "Nao identificado"}</p>
+        <p className="retro-muted">Atualize perfil, preferencias e seguranca.</p>
         {status ? <p className="retro-muted">{status}</p> : null}
         {error ? <p className="retro-error">{error}</p> : null}
       </section>
+
+      <div className="tw-settings-layout">
+        <aside className="tw-card tw-settings-nav">
+          <h2 className="tw-subtitle">Categorias</h2>
+          <a className="tw-settings-link" href="#perfil">Perfil</a>
+          <a className="tw-settings-link" href="#aparencia">Aparencia</a>
+          <a className="tw-settings-link" href="#notificacoes">Notificacoes</a>
+          <a className="tw-settings-link" href="#email">Email</a>
+          <a className="tw-settings-link" href="#seguranca">Seguranca</a>
+          {account?.is_moderator ? (
+            <a className="tw-settings-link" href="#moderacao">Moderacao</a>
+          ) : null}
+          <div className="tw-settings-quick-actions">
+            <button className="retro-button tw-small-button" type="button" onClick={() => router.push("/")}>
+              Voltar ao feed
+            </button>
+            <button className="retro-button tw-small-button" type="button" onClick={() => router.push("/live")}>
+              Live
+            </button>
+            {account?.handle ? (
+              <button
+                className="retro-button tw-small-button"
+                type="button"
+                onClick={() => router.push(`/perfil/${account.handle}`)}
+              >
+                Ver meu perfil
+              </button>
+            ) : null}
+          </div>
+        </aside>
+
+        <div className="tw-settings-content">
+          <section className="tw-card" id="perfil">
+            <h2 className="tw-section-title">Perfil</h2>
+            <form className="retro-form" onSubmit={onSaveProfile}>
+              <label htmlFor="settings-name">Nome</label>
+              <input
+                id="settings-name"
+                className="retro-input"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Seu nome publico"
+              />
+
+              <label htmlFor="settings-handle">@</label>
+              <input
+                id="settings-handle"
+                className="retro-input"
+                value={handle}
+                onChange={(event) => setHandle(event.target.value)}
+                placeholder="ex: joao_90"
+              />
+
+              <label htmlFor="settings-youtube">YouTube</label>
+              <input
+                id="settings-youtube"
+                className="retro-input"
+                value={youtubeAccount}
+                onChange={(event) => setYoutubeAccount(event.target.value)}
+                placeholder="@canal ou URL"
+              />
+
+              <label htmlFor="settings-photo-file">Foto de perfil (arquivo)</label>
+              <input
+                ref={photoInputRef}
+                id="settings-photo-file"
+                className="tw-file-input-hidden"
+                type="file"
+                accept="image/*"
+                onChange={onPhotoFileChange}
+              />
+              <label
+                htmlFor="settings-photo-file"
+                className="tw-upload-box"
+                data-has-file={profilePhotoFile ? "true" : "false"}
+              >
+                <span className="tw-upload-title">
+                  {profilePhotoFile ? "Nova foto selecionada" : "Selecionar foto de perfil"}
+                </span>
+                <span className="tw-upload-meta">
+                  {profilePhotoFile
+                    ? `${profilePhotoFile.name} (${formatBytes(profilePhotoFile.size)})`
+                    : "Clique para escolher uma imagem"}
+                </span>
+              </label>
+
+              {profilePhotoPreviewUrl ? (
+                <img className="tw-profile-photo-preview" src={profilePhotoPreviewUrl} alt="Previa da foto" />
+              ) : (
+                <p className="retro-muted">Sem foto de perfil.</p>
+              )}
+
+              <div className="tw-inline-actions">
+                <button className="retro-button" type="button" onClick={removePhotoSelection}>
+                  Remover foto atual
+                </button>
+              </div>
+
+              <button className="retro-button primary" type="submit" disabled={isSaving}>
+                {isSaving ? "Salvando..." : "Salvar perfil"}
+              </button>
+            </form>
+          </section>
+
+          <section className="tw-card" id="aparencia">
+            <h2 className="tw-section-title">Aparencia</h2>
+            <div className="retro-form">
+              <label htmlFor="settings-theme">Tema</label>
+              <select
+                id="settings-theme"
+                className="retro-input"
+                value={themePreference}
+                onChange={(event) => setThemePreference(event.target.value as "light" | "dark")}
+              >
+                <option value="light">Claro</option>
+                <option value="dark">Escuro</option>
+              </select>
+            </div>
+          </section>
+
+          <section className="tw-card" id="notificacoes">
+            <h2 className="tw-section-title">Notificacoes</h2>
+            <div className="retro-form">
+              <label className="retro-label" htmlFor="settings-notifications">
+                Alertas do aplicativo
+              </label>
+              <div className="tw-inline-actions">
+                <label className="retro-input" style={{ margin: 0, padding: "7px 8px" }}>
+                  <input
+                    id="settings-notifications"
+                    type="checkbox"
+                    checked={notificationsEnabled}
+                    onChange={(event) => setNotificationsEnabled(event.target.checked)}
+                  />
+                  <span style={{ marginLeft: 8 }}>Ativar notificacoes</span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section className="tw-card" id="email">
+            <h2 className="tw-section-title">Email opcional</h2>
+            <p className="retro-muted">
+              Status atual: {account?.email_verified_optional ? "Confirmado" : "Pendente"}
+            </p>
+            <p className="retro-muted">Data: {formatDate(account?.email_verified_at || null)}</p>
+            <button className="retro-button primary" type="button" onClick={confirmEmailNow} disabled={isSaving}>
+              {isSaving ? "Salvando..." : "Confirmar email"}
+            </button>
+          </section>
+
+          <section className="tw-card" id="seguranca">
+            <h2 className="tw-section-title">Seguranca</h2>
+            <p className="retro-muted">Logado como: {user?.email || "Nao identificado"}</p>
+            <div className="tw-inline-actions">
+              <button className="retro-button" type="button" onClick={signOut}>
+                Sair da conta
+              </button>
+              <button className="retro-button danger" type="button" onClick={lockApp}>
+                Travar aplicativo
+              </button>
+            </div>
+          </section>
+
+          <section className="tw-card" id="moderacao">
+            <h2 className="tw-section-title">Permissoes</h2>
+            <p className="retro-muted">
+              Perfil atual: {account?.is_moderator ? "Moderador" : "Usuario comum"}
+            </p>
+            {account?.is_moderator ? (
+              <div className="retro-form">
+                <label htmlFor="mod-target">@ do usuario</label>
+                <input
+                  id="mod-target"
+                  className="retro-input"
+                  value={modTargetHandle}
+                  onChange={(event) => setModTargetHandle(event.target.value)}
+                  placeholder="ex: maria_90"
+                />
+                <div className="tw-inline-actions">
+                  <button
+                    className="retro-button primary"
+                    type="button"
+                    onClick={() => setModeratorRole(true)}
+                    disabled={isModSaving}
+                  >
+                    Tornar moderador
+                  </button>
+                  <button
+                    className="retro-button danger"
+                    type="button"
+                    onClick={() => setModeratorRole(false)}
+                    disabled={isModSaving}
+                  >
+                    Remover moderador
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </section>
+        </div>
+      </div>
     </main>
   );
 }

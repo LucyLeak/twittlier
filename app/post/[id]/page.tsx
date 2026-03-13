@@ -40,6 +40,27 @@ function getErrorMessage(caughtError: unknown, fallback: string) {
   return fallback;
 }
 
+function ShareIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 12v7h16v-7" />
+      <path d="M12 3v12" />
+      <path d="m7 8 5-5 5 5" />
+    </svg>
+  );
+}
+
+function HeartIcon({ filled = false }: { filled?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="m12 20-1.2-1.1C6.2 14.8 3.5 12.4 3.5 8.9A4.4 4.4 0 0 1 8 4.5c1.5 0 3 .7 4 1.9 1-1.2 2.5-1.9 4-1.9a4.4 4.4 0 0 1 4.5 4.4c0 3.5-2.7 5.9-7.3 10L12 20Z"
+        fill={filled ? "currentColor" : "none"}
+      />
+    </svg>
+  );
+}
+
 export default function PostDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -272,15 +293,6 @@ export default function PostDetailPage() {
             <button className="retro-button" type="button" onClick={() => router.push("/")}>
               Voltar ao feed
             </button>
-            {author?.handle ? (
-              <button
-                className="retro-button"
-                type="button"
-                onClick={() => router.push(`/perfil/${author.handle}`)}
-              >
-                Ver perfil
-              </button>
-            ) : null}
           </div>
         </div>
         {status ? <p className="retro-muted">{status}</p> : null}
@@ -291,7 +303,13 @@ export default function PostDetailPage() {
         <section className="tw-card">
           <article className="tw-post-card">
             <div className="tw-post-header">
-              <div className="tw-post-author">
+              <button
+                className="tw-author-link"
+                type="button"
+                disabled={!author?.handle}
+                onClick={() => author?.handle && router.push(`/perfil/${author.handle}`)}
+                aria-label={author?.handle ? `Abrir perfil de ${author.handle}` : "Perfil indisponivel"}
+              >
                 {author?.profile_photo_url ? (
                   <img className="tw-avatar" src={author.profile_photo_url} alt={`Foto de ${author.name}`} />
                 ) : (
@@ -299,14 +317,14 @@ export default function PostDetailPage() {
                     {(author?.name || "?").slice(0, 1).toUpperCase()}
                   </div>
                 )}
-                <div>
-                  <div className="tw-post-name">
+                <span>
+                  <span className="tw-post-name">
                     {author?.name || "Anon"}
                     {author?.is_moderator ? <span className="tw-role-chip">MOD</span> : null}
-                  </div>
-                  <div className="tw-post-handle">@{author?.handle || "anon"}</div>
-                </div>
-              </div>
+                  </span>
+                  <span className="tw-post-handle">@{author?.handle || "anon"}</span>
+                </span>
+              </button>
               <time className="post-time">{new Date(post.created_at).toLocaleString("pt-BR")}</time>
             </div>
 
@@ -329,22 +347,30 @@ export default function PostDetailPage() {
 
             <div className="tw-post-actions">
               <button
-                className="retro-button tw-small-button tw-action-button"
+                className="retro-button tw-icon-button tw-action-button"
                 type="button"
                 data-active={postLikes.liked ? "true" : "false"}
                 aria-pressed={postLikes.liked}
+                aria-label={postLikes.liked ? "Remover curtida" : "Curtir post"}
+                title={postLikes.liked ? "Curtido" : "Curtir"}
                 disabled={isLikePending || !currentAccount}
                 onClick={toggleLike}
               >
-                {isLikePending ? "Salvando..." : postLikes.liked ? "Curtido" : "Curtir"}
-                <span className="tw-action-count">{postLikes.count}</span>
+                <span className="tw-button-icon">
+                  <HeartIcon filled={postLikes.liked} />
+                </span>
               </button>
-              <button className="retro-button tw-small-button" type="button" onClick={copyPostLink}>
-                Copiar link
+              <button
+                className="retro-button tw-icon-button"
+                type="button"
+                onClick={copyPostLink}
+                aria-label="Copiar link do post"
+                title="Copiar link"
+              >
+                <span className="tw-button-icon">
+                  <ShareIcon />
+                </span>
               </button>
-              <a className="retro-button tw-small-button" href={getPostUrl()} target="_blank" rel="noreferrer">
-                Abrir em nova aba
-              </a>
             </div>
           </article>
         </section>
@@ -361,7 +387,13 @@ export default function PostDetailPage() {
               return (
                 <article className="tw-post-card tw-post-reply-card" key={reply.id}>
                   <div className="tw-post-header">
-                    <div className="tw-post-author">
+                    <button
+                      className="tw-author-link"
+                      type="button"
+                      disabled={!replyAuthor?.handle}
+                      onClick={() => replyAuthor?.handle && router.push(`/perfil/${replyAuthor.handle}`)}
+                      aria-label={replyAuthor?.handle ? `Abrir perfil de ${replyAuthor.handle}` : "Perfil indisponivel"}
+                    >
                       {replyAuthor?.profile_photo_url ? (
                         <img
                           className="tw-avatar"
@@ -373,16 +405,16 @@ export default function PostDetailPage() {
                           {(replyAuthor?.name || "?").slice(0, 1).toUpperCase()}
                         </div>
                       )}
-                      <div>
-                        <div className="tw-post-name">
+                      <span>
+                        <span className="tw-post-name">
                           {replyAuthor?.name || "Anon"}
                           {replyAuthor?.is_moderator ? (
                             <span className="tw-role-chip">MOD</span>
                           ) : null}
-                        </div>
-                        <div className="tw-post-handle">@{replyAuthor?.handle || "anon"}</div>
-                      </div>
-                    </div>
+                        </span>
+                        <span className="tw-post-handle">@{replyAuthor?.handle || "anon"}</span>
+                      </span>
+                    </button>
                     <time className="post-time">
                       {new Date(reply.created_at).toLocaleString("pt-BR")}
                     </time>

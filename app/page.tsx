@@ -54,15 +54,6 @@ function HomeIcon() {
   );
 }
 
-function ProfileIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="8" r="3.2" />
-      <path d="M5 20c.9-3.7 4-5.5 7-5.5s6.1 1.8 7 5.5" />
-    </svg>
-  );
-}
-
 function LiveIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -106,6 +97,37 @@ function LockIcon() {
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <rect x="5" y="11" width="14" height="10" rx="1" />
       <path d="M8 11V8a4 4 0 1 1 8 0v3" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 12v7h16v-7" />
+      <path d="M12 3v12" />
+      <path d="m7 8 5-5 5 5" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 7h16" />
+      <path d="M9 7V5h6v2" />
+      <path d="M7 7l1 12h8l1-12" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
     </svg>
   );
 }
@@ -194,6 +216,7 @@ export default function FeedPage() {
   const [blockedByIds, setBlockedByIds] = useState<string[]>([]);
   const [timelineMode, setTimelineMode] = useState<TimelineMode>("for_you");
   const [text, setText] = useState("");
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -528,6 +551,18 @@ export default function FeedPage() {
   }, [file]);
 
   useEffect(() => {
+    if (text.trim() || file) {
+      setIsComposerOpen(true);
+    }
+  }, [text, file]);
+
+  useEffect(() => {
+    if (isComposerOpen && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [isComposerOpen]);
+
+  useEffect(() => {
     if (!textareaRef.current) return;
     textareaRef.current.style.height = "0px";
     textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 220)}px`;
@@ -710,6 +745,7 @@ export default function FeedPage() {
         }));
       }
       setStatus("Post publicado.");
+      setIsComposerOpen(false);
     } catch (caughtError) {
       const messageText =
         caughtError instanceof Error ? caughtError.message : "Erro ao publicar.";
@@ -727,99 +763,6 @@ export default function FeedPage() {
     setFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
-    }
-  }
-
-  async function toggleFollow(targetUserId: string, handle: string) {
-    if (!currentAccount || targetUserId === currentAccount.user_id) return;
-    setError("");
-    setStatus("");
-    setIsActionLoading(true);
-    try {
-      const supabase = getSupabaseBrowserClient();
-      const alreadyFollowing = followingSet.has(targetUserId);
-      if (alreadyFollowing) {
-        const { error: deleteError } = await supabase
-          .from("follows")
-          .delete()
-          .eq("follower_user_id", currentAccount.user_id)
-          .eq("following_user_id", targetUserId);
-        if (deleteError) throw deleteError;
-        setStatus(`Voce deixou de seguir @${handle}.`);
-      } else {
-        const { error: insertError } = await supabase.from("follows").insert({
-          follower_user_id: currentAccount.user_id,
-          following_user_id: targetUserId
-        });
-        if (insertError) throw insertError;
-        setStatus(`Voce agora segue @${handle}.`);
-      }
-      setFollowingIds((currentIds) =>
-        alreadyFollowing
-          ? currentIds.filter((id) => id !== targetUserId)
-          : [...currentIds, targetUserId]
-      );
-    } catch (caughtError) {
-      const messageText =
-        caughtError instanceof Error ? caughtError.message : "Falha no follow.";
-      setError(messageText);
-    } finally {
-      setIsActionLoading(false);
-    }
-  }
-
-  async function toggleBlock(targetUserId: string, handle: string) {
-    if (!currentAccount || targetUserId === currentAccount.user_id) return;
-    setError("");
-    setStatus("");
-    setIsActionLoading(true);
-    try {
-      const supabase = getSupabaseBrowserClient();
-      const alreadyBlocked = blockedSet.has(targetUserId);
-      if (alreadyBlocked) {
-        const { error: deleteError } = await supabase
-          .from("blocks")
-          .delete()
-          .eq("blocker_user_id", currentAccount.user_id)
-          .eq("blocked_user_id", targetUserId);
-        if (deleteError) throw deleteError;
-        setStatus(`@${handle} desbloqueado.`);
-      } else {
-        const { error: insertError } = await supabase.from("blocks").insert({
-          blocker_user_id: currentAccount.user_id,
-          blocked_user_id: targetUserId
-        });
-        if (insertError) throw insertError;
-
-        const { error: cleanupForwardError } = await supabase
-          .from("follows")
-          .delete()
-          .eq("follower_user_id", currentAccount.user_id)
-          .eq("following_user_id", targetUserId);
-        if (cleanupForwardError) throw cleanupForwardError;
-
-        const { error: cleanupReverseError } = await supabase
-          .from("follows")
-          .delete()
-          .eq("follower_user_id", targetUserId)
-          .eq("following_user_id", currentAccount.user_id);
-        if (cleanupReverseError) throw cleanupReverseError;
-        setStatus(`@${handle} bloqueado.`);
-      }
-      setBlockedIds((currentIds) =>
-        alreadyBlocked
-          ? currentIds.filter((id) => id !== targetUserId)
-          : [...currentIds, targetUserId]
-      );
-      if (!alreadyBlocked) {
-        setFollowingIds((currentIds) => currentIds.filter((id) => id !== targetUserId));
-      }
-    } catch (caughtError) {
-      const messageText =
-        caughtError instanceof Error ? caughtError.message : "Falha no bloqueio.";
-      setError(messageText);
-    } finally {
-      setIsActionLoading(false);
     }
   }
 
@@ -888,49 +831,105 @@ export default function FeedPage() {
         <aside className="tw-left-column">
           <section className="tw-card tw-sticky">
             <h1 className="tw-brand">Twittlier</h1>
-            <p className="tw-handle-label">@{currentAccount?.handle || "usuario"}</p>
-            <div className="tw-menu">
-              <button className="retro-button tw-menu-button" type="button" onClick={() => router.push("/")}>
+            <div className="tw-profile-shortcut">
+              <button
+                className="tw-avatar-button"
+                type="button"
+                onClick={() => currentAccount?.handle && router.push(`/perfil/${currentAccount.handle}`)}
+                disabled={!currentAccount?.handle}
+                aria-label="Abrir perfil"
+              >
+                {currentAccount?.profile_photo_url ? (
+                  <img
+                    className="tw-avatar"
+                    src={currentAccount.profile_photo_url}
+                    alt={`Foto de ${currentAccount.name}`}
+                  />
+                ) : (
+                  <div className="tw-avatar fallback">
+                    {(currentAccount?.name || "?").slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+              </button>
+              <div className="tw-profile-shortcut-meta">
+                <button
+                  className="tw-profile-link"
+                  type="button"
+                  onClick={() => currentAccount?.handle && router.push(`/perfil/${currentAccount.handle}`)}
+                  disabled={!currentAccount?.handle}
+                >
+                  {currentAccount?.name || "Usuario"}
+                </button>
+                <button
+                  className="tw-handle-link"
+                  type="button"
+                  onClick={() => currentAccount?.handle && router.push(`/perfil/${currentAccount.handle}`)}
+                  disabled={!currentAccount?.handle}
+                >
+                  @{currentAccount?.handle || "usuario"}
+                </button>
+              </div>
+            </div>
+            <div className="tw-menu tw-menu-compact">
+              <button
+                className="retro-button tw-menu-button tw-icon-button"
+                type="button"
+                onClick={() => router.push("/")}
+                aria-label="Home"
+                title="Home"
+              >
                 <span className="tw-button-icon">
                   <HomeIcon />
                 </span>
-                <span>Home</span>
+                <span className="tw-sr-only">Home</span>
               </button>
-              {currentAccount?.handle ? (
-                <button
-                  className="retro-button tw-menu-button"
-                  type="button"
-                  onClick={() => router.push(`/perfil/${currentAccount.handle}`)}
-                >
-                  <span className="tw-button-icon">
-                    <ProfileIcon />
-                  </span>
-                  <span>Perfil</span>
-                </button>
-              ) : null}
-              <button className="retro-button tw-menu-button" type="button" onClick={() => router.push("/live")}>
+              <button
+                className="retro-button tw-menu-button tw-icon-button"
+                type="button"
+                onClick={() => router.push("/live")}
+                aria-label="Live"
+                title="Live"
+              >
                 <span className="tw-button-icon">
                   <LiveIcon />
                 </span>
-                <span>Live</span>
+                <span className="tw-sr-only">Live</span>
               </button>
-              <button className="retro-button tw-menu-button" type="button" onClick={() => router.push("/configuracoes")}>
+              <button
+                className="retro-button tw-menu-button tw-icon-button"
+                type="button"
+                onClick={() => router.push("/configuracoes")}
+                aria-label="Configuracoes"
+                title="Configuracoes"
+              >
                 <span className="tw-button-icon">
                   <SettingsIcon />
                 </span>
-                <span>Configuracoes</span>
+                <span className="tw-sr-only">Configuracoes</span>
               </button>
-              <button className="retro-button tw-menu-button" type="button" onClick={signOut}>
+              <button
+                className="retro-button tw-menu-button tw-icon-button"
+                type="button"
+                onClick={signOut}
+                aria-label="Sair"
+                title="Sair"
+              >
                 <span className="tw-button-icon">
                   <LogoutIcon />
                 </span>
-                <span>Sair</span>
+                <span className="tw-sr-only">Sair</span>
               </button>
-              <button className="retro-button danger tw-menu-button" type="button" onClick={lockApp}>
+              <button
+                className="retro-button danger tw-menu-button tw-icon-button"
+                type="button"
+                onClick={lockApp}
+                aria-label="Travar"
+                title="Travar"
+              >
                 <span className="tw-button-icon">
                   <LockIcon />
                 </span>
-                <span>Travar</span>
+                <span className="tw-sr-only">Travar</span>
               </button>
             </div>
             <div className="tw-user-email-panel">
@@ -959,71 +958,88 @@ export default function FeedPage() {
         </aside>
 
         <section className="tw-main-column">
-          <section className="tw-card tw-composer-card">
-            <h2 className="tw-section-title">Publicar</h2>
-            <form className="retro-form" onSubmit={publishPost}>
-              <textarea
-                ref={textareaRef}
-                className="tw-composer-input"
-                placeholder="O que esta acontecendo?"
-                value={text}
-                onChange={(event) => setText(event.target.value)}
-              />
-              <div className="tw-composer-toolbar">
-                <input
-                  id="composer-media"
-                  ref={fileInputRef}
-                  className="tw-file-input-hidden"
-                  type="file"
-                  accept="image/*,video/*,.gif"
-                  onChange={onFileChange}
-                />
-                <label
-                  htmlFor="composer-media"
-                  className="tw-upload-box"
-                  data-has-file={file ? "true" : "false"}
-                >
-                  <span className="tw-upload-title">
-                    {file ? "Midia selecionada" : "Adicionar foto, video ou gif"}
-                  </span>
-                  <span className="tw-upload-meta">
-                    {file
-                      ? `${file.name} (${formatBytes(file.size)})`
-                      : "Clique para escolher uma midia"}
-                  </span>
-                </label>
-                {file ? (
-                  <button
-                    className="retro-button tw-small-button"
-                    type="button"
-                    onClick={clearSelectedFile}
-                  >
-                    Remover
-                  </button>
-                ) : null}
-                <span className="retro-muted tw-char-counter">{text.length}/280</span>
-              </div>
-              <div className="tw-composer-progress">
-                <input
-                  className="tw-composer-range"
-                  type="range"
-                  min={1}
-                  max={280}
-                  value={Math.max(1, text.length)}
-                  readOnly
-                />
-              </div>
-              {filePreviewUrl ? (
-                file?.type.startsWith("video/") ? (
-                  <video className="tw-composer-preview" src={filePreviewUrl} controls />
-                ) : (
-                  <img className="tw-composer-preview" src={filePreviewUrl} alt="Previa da midia" />
-                )
-              ) : null}
-              <button className="retro-button primary tw-publish-button" type="submit" disabled={isPublishing}>
-                {isPublishing ? "Publicando..." : "Postar"}
+          <section className="tw-card tw-composer-card" data-open={isComposerOpen ? "true" : "false"}>
+            <div className="tw-composer-head">
+              <h2 className="tw-section-title">Publicar</h2>
+              <button
+                className="retro-button tw-icon-button tw-composer-toggle"
+                type="button"
+                aria-label={isComposerOpen ? "Fechar publicacao" : "Abrir publicacao"}
+                data-open={isComposerOpen ? "true" : "false"}
+                onClick={() => setIsComposerOpen((current) => !current)}
+              >
+                <span className="tw-button-icon">
+                  <PlusIcon />
+                </span>
               </button>
-            </form>
+            </div>
+            {isComposerOpen ? (
+              <form className="retro-form" onSubmit={publishPost}>
+                <textarea
+                  ref={textareaRef}
+                  className="tw-composer-input"
+                  placeholder="O que esta acontecendo?"
+                  value={text}
+                  onChange={(event) => setText(event.target.value)}
+                />
+                <div className="tw-composer-toolbar">
+                  <input
+                    id="composer-media"
+                    ref={fileInputRef}
+                    className="tw-file-input-hidden"
+                    type="file"
+                    accept="image/*,video/*,.gif"
+                    onChange={onFileChange}
+                  />
+                  <label
+                    htmlFor="composer-media"
+                    className="tw-upload-box"
+                    data-has-file={file ? "true" : "false"}
+                  >
+                    <span className="tw-upload-title">
+                      {file ? "Midia selecionada" : "Adicionar foto, video ou gif"}
+                    </span>
+                    <span className="tw-upload-meta">
+                      {file
+                        ? `${file.name} (${formatBytes(file.size)})`
+                        : "Clique para escolher uma midia"}
+                    </span>
+                  </label>
+                  {file ? (
+                    <button
+                      className="retro-button tw-small-button"
+                      type="button"
+                      onClick={clearSelectedFile}
+                    >
+                      Remover
+                    </button>
+                  ) : null}
+                  <span className="retro-muted tw-char-counter">{text.length}/280</span>
+                </div>
+                <div className="tw-composer-progress">
+                  <input
+                    className="tw-composer-range"
+                    type="range"
+                    min={1}
+                    max={280}
+                    value={Math.max(1, text.length)}
+                    readOnly
+                  />
+                </div>
+                {filePreviewUrl ? (
+                  file?.type.startsWith("video/") ? (
+                    <video className="tw-composer-preview" src={filePreviewUrl} controls />
+                  ) : (
+                    <img className="tw-composer-preview" src={filePreviewUrl} alt="Previa da midia" />
+                  )
+                ) : null}
+                <button className="retro-button primary tw-publish-button" type="submit" disabled={isPublishing}>
+                  {isPublishing ? "Publicando..." : "Postar"}
+                </button>
+              </form>
+            ) : (
+              <p className="retro-muted">Clique no + para criar um post.</p>
+            )}
             {status ? <p className="retro-muted">{status}</p> : null}
             {error ? <p className="retro-error">{error}</p> : null}
           </section>
@@ -1055,8 +1071,6 @@ export default function FeedPage() {
                 timelinePosts.map((post) => {
                   const author = getAccountFromPost(post);
                   const isOwnPost = currentAccount?.user_id === post.user_id;
-                  const isFollowingAuthor = followingSet.has(post.user_id);
-                  const isBlockedAuthor = blockedSet.has(post.user_id);
                   const likeInfo = postLikes[post.id] ?? { count: 0, liked: false };
                   const replyCount = repliesByParent[post.id]?.length ?? 0;
                   const replyDraft = replyDrafts[post.id] ?? "";
@@ -1081,7 +1095,13 @@ export default function FeedPage() {
                         }}
                       >
                          <div className="tw-post-header">
-                           <div className="tw-post-author">
+                           <button
+                            className="tw-author-link"
+                            type="button"
+                            disabled={!author?.handle}
+                            onClick={() => author?.handle && router.push(`/perfil/${author.handle}`)}
+                            aria-label={author?.handle ? `Abrir perfil de ${author.handle}` : "Perfil indisponivel"}
+                          >
                              {author?.profile_photo_url ? (
                                <img className="tw-avatar" src={author.profile_photo_url} alt={`Foto de ${author.name}`} />
                              ) : (
@@ -1089,14 +1109,14 @@ export default function FeedPage() {
                                 {(author?.name || "?").slice(0, 1).toUpperCase()}
                               </div>
                             )}
-                            <div>
-                              <div className="tw-post-name">
+                            <span>
+                              <span className="tw-post-name">
                                 {author?.name || "Anon"}
                                 {author?.is_moderator ? <span className="tw-role-chip">MOD</span> : null}
-                              </div>
-                              <div className="tw-post-handle">@{author?.handle || "anon"}</div>
-                            </div>
-                          </div>
+                              </span>
+                              <span className="tw-post-handle">@{author?.handle || "anon"}</span>
+                            </span>
+                          </button>
                           <time className="post-time">{new Date(post.created_at).toLocaleString("pt-BR")}</time>
                         </div>
 
@@ -1118,53 +1138,42 @@ export default function FeedPage() {
                          ) : null}
 
                        <div className="tw-post-actions">
-                         {author?.handle ? (
-                           <button
-                            className="retro-button tw-small-button"
-                            type="button"
-                            onClick={() => router.push(`/perfil/${author.handle}`)}
-                          >
-                            Ver perfil
-                          </button>
-                        ) : null}
-                         <a
-                          className="retro-button tw-small-button"
-                          href={`/post/${post.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                         >
-                          Abrir post
-                         </a>
                          <button
-                          className="retro-button tw-small-button"
+                          className="retro-button tw-icon-button"
                           type="button"
                           onClick={() => copyPostLink(post.id)}
+                          aria-label="Copiar link do post"
+                          title="Copiar link"
                          >
-                          Copiar link
+                          <span className="tw-button-icon">
+                            <ShareIcon />
+                          </span>
                          </button>
                          {currentAccount ? (
                            <>
                              <button
-                               className="retro-button tw-small-button tw-action-button"
+                               className="retro-button tw-icon-button tw-action-button"
                                data-active={likeInfo.liked ? "true" : "false"}
                                data-kind="like"
                                type="button"
                                aria-pressed={likeInfo.liked}
+                               aria-label={likeInfo.liked ? "Remover curtida" : "Curtir post"}
+                               title={likeInfo.liked ? "Curtido" : "Curtir"}
                                disabled={isLikePending}
                                onClick={() => toggleLike(post)}
                              >
                                <span className="tw-button-icon">
                                  <HeartIcon filled={likeInfo.liked} />
                                </span>
-                               <span>{isLikePending ? "Salvando..." : likeInfo.liked ? "Curtido" : "Curtir"}</span>
-                               <span className="tw-action-count">{likeInfo.count}</span>
                              </button>
                              <button
-                               className="retro-button tw-small-button tw-action-button"
+                               className="retro-button tw-icon-button tw-action-button"
                                data-active={isReplying ? "true" : "false"}
                                data-kind="reply"
                                type="button"
                                aria-expanded={isReplying}
+                               aria-label={isReplying ? "Fechar comentarios" : "Comentar no post"}
+                               title={isReplying ? "Fechar comentarios" : "Comentar"}
                                onClick={() =>
                                  setReplyDrafts((prev) => {
                                    const next = { ...prev };
@@ -1180,41 +1189,23 @@ export default function FeedPage() {
                                <span className="tw-button-icon">
                                  <CommentIcon />
                                </span>
-                               <span>{isReplying ? "Fechar comentario" : "Comentar"}</span>
-                               <span className="tw-action-count">{replyCount}</span>
                              </button>
                            </>
                          ) : null}
-                        {!isOwnPost && author ? (
-                          <>
+                          {canDelete ? (
                             <button
-                              className="retro-button tw-small-button"
-                              type="button"
-                              disabled={isActionLoading || blockedBySet.has(author.user_id)}
-                              onClick={() => toggleFollow(author.user_id, author.handle)}
-                            >
-                              {isFollowingAuthor ? "Unfollow" : "Follow"}
-                            </button>
-                            <button
-                              className="retro-button danger tw-small-button"
+                              className="retro-button danger tw-icon-button"
                               type="button"
                               disabled={isActionLoading}
-                              onClick={() => toggleBlock(author.user_id, author.handle)}
+                              onClick={() => deletePost(post.id)}
+                              aria-label="Remover post"
+                              title="Remover"
                             >
-                              {isBlockedAuthor ? "Unblock" : "Block"}
+                              <span className="tw-button-icon">
+                                <TrashIcon />
+                              </span>
                             </button>
-                          </>
-                        ) : null}
-                        {canDelete ? (
-                          <button
-                            className="retro-button danger tw-small-button"
-                            type="button"
-                            disabled={isActionLoading}
-                            onClick={() => deletePost(post.id)}
-                          >
-                            Remover
-                          </button>
-                        ) : null}
+                          ) : null}
                        </div>
                        {isReplying ? (
                          <form
@@ -1260,7 +1251,13 @@ export default function FeedPage() {
                         return (
                       <article className="tw-post-card tw-post-reply-card" key={reply.id}>
                            <div className="tw-post-header">
-                             <div className="tw-post-author">
+                             <button
+                              className="tw-author-link"
+                              type="button"
+                              disabled={!replyAuthor?.handle}
+                              onClick={() => replyAuthor?.handle && router.push(`/perfil/${replyAuthor.handle}`)}
+                              aria-label={replyAuthor?.handle ? `Abrir perfil de ${replyAuthor.handle}` : "Perfil indisponivel"}
+                            >
                                {replyAuthor?.profile_photo_url ? (
                                  <img
                                   className="tw-avatar"
@@ -1272,18 +1269,18 @@ export default function FeedPage() {
                                   {(replyAuthor?.name || "?").slice(0, 1).toUpperCase()}
                                 </div>
                               )}
-                              <div>
-                                <div className="tw-post-name">
+                              <span>
+                                <span className="tw-post-name">
                                   {replyAuthor?.name || "Anon"}
                                   {replyAuthor?.is_moderator ? (
                                     <span className="tw-role-chip">MOD</span>
                                  ) : null}
-                               </div>
-                               <div className="tw-post-handle">
+                               </span>
+                               <span className="tw-post-handle">
                                   @{replyAuthor?.handle || "anon"}
-                                </div>
-                              </div>
-                            </div>
+                                </span>
+                              </span>
+                            </button>
                             <div className="tw-inline-actions">
                               <span className="tw-reply-badge">Resposta</span>
                               <time className="post-time">
@@ -1330,25 +1327,15 @@ export default function FeedPage() {
                 <p className="retro-muted">Sem sugestoes no momento.</p>
               ) : (
                 suggestedAccounts.map((item) => (
-                  <div className="tw-suggestion-item" key={item.user_id}>
-                    <button
-                      className="tw-link-button"
-                      type="button"
-                      onClick={() => router.push(`/perfil/${item.handle}`)}
-                    >
-                      @{item.handle}
-                    </button>
-                    <div className="tw-inline-actions">
-                      <button
-                        className="retro-button tw-small-button"
-                        type="button"
-                        disabled={isActionLoading}
-                        onClick={() => toggleFollow(item.user_id, item.handle)}
-                      >
-                        {followingSet.has(item.user_id) ? "Unfollow" : "Follow"}
-                      </button>
-                    </div>
-                  </div>
+                  <button
+                    className="tw-suggestion-item tw-suggestion-link"
+                    key={item.user_id}
+                    type="button"
+                    onClick={() => router.push(`/perfil/${item.handle}`)}
+                  >
+                    <strong>@{item.handle}</strong>
+                    <span className="retro-muted">{item.name}</span>
+                  </button>
                 ))
               )}
             </div>

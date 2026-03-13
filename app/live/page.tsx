@@ -716,61 +716,79 @@ export default function LivePage() {
 
   return (
     <main className="tw-page-shell">
-      <section className="tw-card">
-        <h1 className="tw-section-title">Live Chat</h1>
-        <div className="tw-inline-actions">
-          <button className="retro-button" type="button" onClick={() => router.push("/")}>
-            Voltar ao feed
-          </button>
-          {roomOwnerAccount?.handle ? (
-            <button
-              className="retro-button"
-              type="button"
-              onClick={() => router.push(`/perfil/${roomOwnerAccount.handle}`)}
-            >
-              Ver perfil da live
+      <section className="tw-card tw-live-hero">
+        <div className="tw-live-hero-head">
+          <h1 className="tw-section-title">Live Chat</h1>
+          <div className="tw-inline-actions">
+            <button className="retro-button tw-small-button" type="button" onClick={() => router.push("/")}>
+              Voltar ao feed
             </button>
-          ) : null}
+            {roomOwnerAccount?.handle ? (
+              <button
+                className="retro-button tw-small-button"
+                type="button"
+                onClick={() => router.push(`/perfil/${roomOwnerAccount.handle}`)}
+              >
+                Ver perfil da live
+              </button>
+            ) : null}
+          </div>
         </div>
         <p className="retro-muted">
           Sala atual: @{roomOwnerAccount?.handle || "sem-handle"}
           {requestedHandle ? " (acesso por stream)" : " (sua sala)"}
         </p>
-
-        <form className="retro-form" onSubmit={handleSwitchRoom}>
-          <label className="retro-muted" htmlFor="room-handle">
-            Entrar em outra sala
-          </label>
-          <div className="tw-inline-actions">
-            <input
-              id="room-handle"
-              className="retro-input"
-              value={roomHandleInput}
-              onChange={(event) => setRoomHandleInput(event.target.value)}
-              placeholder="Digite o handle da sala (ex: slendermangames)"
-            />
-            <button
-              className="retro-button"
-              type="submit"
-              disabled={!roomHandleInput.trim() || roomHandleInput.trim() === roomHandle}
-            >
-              Acessar
-            </button>
+        <div className="tw-live-steps">
+          <div className="tw-live-step">
+            <strong>1.</strong> Digite o @ da sala e clique em Acessar.
           </div>
-        </form>
-
-        <p className="retro-muted">
-          URL para OBS overlay:{" "}
-          <code className="tw-live-code">{embedUrl || "carregando..."}</code>
-        </p>
-        <p className="retro-muted">
-          Substitua <code>SUA_CHAVE_OVERLAY</code> pela chave privada <code>OBS_OVERLAY_KEY</code>.
-        </p>
+          <div className="tw-live-step">
+            <strong>2.</strong> Escreva sua mensagem e envie para o chat.
+          </div>
+        </div>
       </section>
 
-      <section className="tw-card">
-        <h2 className="tw-section-title">Enviar mensagem da live</h2>
-        <form className="retro-form" onSubmit={submitLiveMessage}>
+      <div className="tw-live-layout">
+        <section className="tw-card">
+          <h2 className="tw-section-title">Sala e acesso</h2>
+          <form className="retro-form" onSubmit={handleSwitchRoom}>
+            <label className="retro-muted" htmlFor="room-handle">
+              Entrar em outra sala
+            </label>
+            <div className="tw-inline-actions">
+              <input
+                id="room-handle"
+                className="retro-input"
+                value={roomHandleInput}
+                onChange={(event) => setRoomHandleInput(event.target.value)}
+                placeholder="Digite o handle da sala (ex: slendermangames)"
+              />
+              <button
+                className="retro-button"
+                type="submit"
+                disabled={!roomHandleInput.trim() || roomHandleInput.trim() === roomHandle}
+              >
+                Acessar
+              </button>
+            </div>
+          </form>
+
+          <details className="tw-live-details">
+            <summary>Configurar overlay OBS</summary>
+            <p className="retro-muted">
+              URL para OBS overlay:{" "}
+              <code className="tw-live-code">{embedUrl || "carregando..."}</code>
+            </p>
+            <p className="retro-muted">
+              Substitua <code>SUA_CHAVE_OVERLAY</code> pela chave privada <code>OBS_OVERLAY_KEY</code>.
+            </p>
+          </details>
+        </section>
+
+        <section className="tw-card">
+          <h2 className="tw-section-title">Enviar mensagem da live</h2>
+          <p className="retro-muted">Escreva a mensagem, anexe midia se quiser e envie.</p>
+          <form className="retro-form" onSubmit={submitLiveMessage}>
           <textarea
             className="tw-composer-input"
             placeholder="Mensagem para o chat da live..."
@@ -845,7 +863,8 @@ export default function LivePage() {
         </form>
         {status ? <p className="retro-muted">{status}</p> : null}
         {error ? <p className="retro-error">{error}</p> : null}
-      </section>
+        </section>
+      </div>
 
       <section className="tw-card">
         <h2 className="tw-section-title">Mensagens ao vivo</h2>

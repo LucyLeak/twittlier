@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { MouseEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
@@ -269,6 +270,22 @@ export default function ProfilePage() {
     }
   }
 
+  function openPostInNewTab(postId: string) {
+    window.open(`/post/${postId}`, "_blank", "noopener,noreferrer");
+  }
+
+  function handlePostCardClick(event: MouseEvent<HTMLElement>, postId: string) {
+    const target = event.target as HTMLElement | null;
+    if (!target) {
+      openPostInNewTab(postId);
+      return;
+    }
+    if (target.closest("button, a, video, img, input, textarea, select, label")) {
+      return;
+    }
+    openPostInNewTab(postId);
+  }
+
   const isOwnProfile =
     viewerAccount && targetAccount ? viewerAccount.user_id === targetAccount.user_id : false;
 
@@ -287,29 +304,32 @@ export default function ProfilePage() {
 
   return (
     <main className="tw-page-shell">
-      <section className="tw-card">
-        <div className="tw-inline-actions tw-inline-between">
-          <h1 className="tw-section-title">
-            {targetAccount?.name || "Perfil"}{" "}
-            {targetAccount?.is_moderator ? <span className="tw-role-chip">MOD</span> : null}
-          </h1>
+      <section className="tw-card tw-profile-hero">
+        <div className="tw-profile-hero-top">
+          <div>
+            <h1 className="tw-section-title">
+              {targetAccount?.name || "Perfil"}{" "}
+              {targetAccount?.is_moderator ? <span className="tw-role-chip">MOD</span> : null}
+            </h1>
+            <p className="tw-profile-handle">@{targetAccount?.handle || "desconhecido"}</p>
+          </div>
           <div className="tw-inline-actions">
             {targetAccount?.handle ? (
               <button
-                className="retro-button"
+                className="retro-button tw-small-button"
                 type="button"
                 onClick={() => router.push(`/live?stream=${targetAccount.handle}`)}
               >
                 Abrir live
               </button>
             ) : null}
-            <button className="retro-button" type="button" onClick={() => router.push("/")}>
+            <button className="retro-button tw-small-button" type="button" onClick={() => router.push("/")}>
               Voltar ao feed
             </button>
           </div>
         </div>
 
-        <div className="tw-profile-head">
+        <div className="tw-profile-hero-body">
           {targetAccount?.profile_photo_url ? (
             <img className="tw-profile-avatar" src={targetAccount.profile_photo_url} alt="Foto de perfil" />
           ) : (
@@ -317,31 +337,38 @@ export default function ProfilePage() {
               {(targetAccount?.name || "?").slice(0, 1).toUpperCase()}
             </div>
           )}
-          <div>
-            <p className="tw-profile-name">{targetAccount?.name || "Perfil"}</p>
-            <p className="tw-profile-handle">@{targetAccount?.handle || "desconhecido"}</p>
+          <div className="tw-profile-meta">
             {targetAccount?.youtube_account ? (
               <p className="retro-muted">YouTube: {targetAccount.youtube_account}</p>
             ) : null}
+            <div className="tw-profile-stats">
+              <span className="retro-muted">{counts.followers} seguidores</span>
+              <span className="retro-muted">{counts.following} seguindo</span>
+            </div>
           </div>
         </div>
 
-        <div className="tw-inline-actions">
-          <span className="retro-muted">{counts.followers} seguidores</span>
-          <span className="retro-muted">{counts.following} seguindo</span>
-        </div>
-
         {!isOwnProfile ? (
-          <div className="tw-inline-actions">
-            <button className="retro-button primary" type="button" onClick={toggleFollow} disabled={isActionLoading || isBlocked || blockedByTarget}>
+          <div className="tw-profile-actions">
+            <button
+              className="retro-button primary"
+              type="button"
+              onClick={toggleFollow}
+              disabled={isActionLoading || isBlocked || blockedByTarget}
+            >
               {isFollowing ? "Unfollow" : "Follow"}
             </button>
-            <button className="retro-button danger" type="button" onClick={toggleBlock} disabled={isActionLoading}>
+            <button
+              className="retro-button danger"
+              type="button"
+              onClick={toggleBlock}
+              disabled={isActionLoading}
+            >
               {isBlocked ? "Unblock" : "Block"}
             </button>
           </div>
         ) : (
-          <div className="tw-inline-actions">
+          <div className="tw-profile-actions">
             <button className="retro-button" type="button" onClick={() => router.push("/configuracoes")}>
               Editar perfil
             </button>
@@ -363,17 +390,22 @@ export default function ProfilePage() {
         ) : (
           <div className="tw-feed-list">
             {posts.map((post) => (
-              <article className="tw-post-card" key={post.id}>
+              <article
+                className="tw-post-card"
+                key={post.id}
+                role="link"
+                tabIndex={0}
+                onClick={(event) => handlePostCardClick(event, post.id)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openPostInNewTab(post.id);
+                  }
+                }}
+              >
                 <div className="tw-post-header">
                   <time className="post-time">{new Date(post.created_at).toLocaleString("pt-BR")}</time>
                   <div className="tw-inline-actions">
-                    <button
-                      className="retro-button tw-small-button"
-                      type="button"
-                      onClick={() => router.push(`/post/${post.id}`)}
-                    >
-                      Abrir post
-                    </button>
                     {(isOwnProfile || canModeratePosts) ? (
                       <button
                         className="retro-button danger tw-small-button"
