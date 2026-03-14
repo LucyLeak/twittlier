@@ -519,7 +519,7 @@ export default function LivePage() {
     for (const message of newMessages) {
       seen.add(message.id);
       const clone = audioTemplate.cloneNode(true) as HTMLAudioElement;
-      clone.volume = 0.5;
+      clone.volume = 0.1;
       clone.currentTime = 0;
       clone.play().catch(() => null);
     }
