@@ -944,6 +944,21 @@ a {
   padding: 8px;
 }
 
+.tw-live-overlay .tw-live-message.is-new {
+  animation: tw-live-pop 0.5s ease-out;
+}
+
+@keyframes tw-live-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .tw-live-message.pending {
   background: #efe4c9;
 }
@@ -1011,15 +1026,15 @@ a {
 }
 
 .tw-live-overlay .tw-live-message {
-  background: rgba(246, 241, 232, 0.96);
+  background: rgba(246, 241, 232, 0.78);
   border: 2px solid var(--line);
-  box-shadow: 4px 4px 0 rgba(17, 17, 17, 0.8);
+  box-shadow: 4px 4px 0 rgba(17, 17, 17, 0.55);
 }
 
 .tw-live-overlay .tw-live-message-head {
   margin: -8px -8px 8px;
   padding: 4px 6px;
-  background: var(--line);
+  background: rgba(17, 17, 17, 0.82);
 }
 
 .tw-live-overlay .tw-live-author {
@@ -1280,8 +1295,12 @@ html[data-theme="dark"] .tw-live-message.rejected {
 }
 
 html[data-theme="dark"] .tw-live-overlay .tw-live-message {
-  background: rgba(18, 19, 26, 0.96);
-  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
+  background: rgba(18, 19, 26, 0.75);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="dark"] .tw-live-overlay .tw-live-message-head {
+  background: rgba(12, 14, 19, 0.86);
 }
 
 html[data-theme="dark"] .tw-upload-box {

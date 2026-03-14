@@ -31,7 +31,6 @@ const LIVE_RETENTION_HOURS = 6;
 const LIVE_MAX_MESSAGES = 200;
 const LIVE_MAX_PENDING = 80;
 const LIVE_CLEANUP_COOLDOWN_MS = 5 * 60 * 1000;
-const OVERLAY_NOTIFICATION_SOUND_URL = "/soundsOBS/obs-notification.mp3";
 
 type OverlayApiMessage = {
   id: string;
@@ -68,7 +67,6 @@ export default function LivePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const lastCleanupRef = useRef(0);
   const overlayFeedRef = useRef<HTMLDivElement | null>(null);
-  const overlayAudioRef = useRef<HTMLAudioElement | null>(null);
   const overlaySeenMessageIdsRef = useRef<Set<string>>(new Set());
   const overlayInitializedRef = useRef(false);
 
@@ -84,6 +82,7 @@ export default function LivePage() {
   const [messages, setMessages] = useState<LiveMessage[]>([]);
   const [pendingMessages, setPendingMessages] = useState<LiveMessage[]>([]);
   const [authorMap, setAuthorMap] = useState<Record<string, AccountRow>>({});
+  const [overlayNewMessageIds, setOverlayNewMessageIds] = useState<Set<string>>(new Set());
   const [text, setText] = useState("");
   const [shareInput, setShareInput] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -130,6 +129,7 @@ export default function LivePage() {
     if (!overlayMode) return;
     overlaySeenMessageIdsRef.current = new Set();
     overlayInitializedRef.current = false;
+    setOverlayNewMessageIds(new Set());
   }, [overlayMode, requestedHandle, overlayAccessKey]);
 
   const embedUrl = useMemo(() => {
@@ -501,9 +501,6 @@ export default function LivePage() {
     if (!overlayMode) return;
     if (messages.length === 0) return;
 
-    const audioTemplate = overlayAudioRef.current;
-    if (!audioTemplate) return;
-
     const seen = overlaySeenMessageIdsRef.current;
     if (!overlayInitializedRef.current) {
       for (const message of messages) {
@@ -518,15 +515,30 @@ export default function LivePage() {
 
     for (const message of newMessages) {
       seen.add(message.id);
-      const clone = audioTemplate.cloneNode(true) as HTMLAudioElement;
-      clone.volume = 0.1;
-      clone.currentTime = 0;
-      clone.play().catch(() => null);
     }
+
+    setOverlayNewMessageIds((current) => {
+      const updated = new Set(current);
+      for (const message of newMessages) {
+        updated.add(message.id);
+      }
+      return updated;
+    });
+
+    const timeoutId = window.setTimeout(() => {
+      setOverlayNewMessageIds((current) => {
+        const updated = new Set(current);
+        for (const message of newMessages) {
+          updated.delete(message.id);
+        }
+        return updated;
+      });
+    }, 1200);
 
     if (seen.size > 400) {
       overlaySeenMessageIdsRef.current = new Set(messages.map((message) => message.id));
     }
+    return () => window.clearTimeout(timeoutId);
   }, [overlayMode, messages]);
 
   useEffect(() => {
@@ -730,14 +742,14 @@ export default function LivePage() {
   if (overlayMode) {
     return (
       <main className="tw-live-overlay">
-        <audio ref={overlayAudioRef} src={OVERLAY_NOTIFICATION_SOUND_URL} preload="auto" />
         <div className="tw-live-feed" ref={overlayFeedRef}>
           {visibleMessages.map((message) => {
             if (message.moderation_status !== "approved") return null;
             const author =
               message.author_handle || authorMap[message.author_user_id]?.handle || "anon";
+            const isNew = overlayNewMessageIds.has(message.id);
             return (
-              <article className="tw-live-message" key={message.id}>
+              <article className={`tw-live-message${isNew ? " is-new" : ""}`} key={message.id}>
                 <header className="tw-live-message-head">
                   <strong className="tw-live-author">@{author}</strong>
                   <time className="tw-live-time">
