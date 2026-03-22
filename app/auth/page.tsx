@@ -9,7 +9,11 @@ import {
   normalizeHandle,
   normalizeName
 } from "@/lib/account-utils";
-import { getSessionUserWithRetry } from "@/lib/session-utils";
+import {
+  getSessionUserWithRetry,
+  isSessionLockError,
+  isSessionTimeoutError
+} from "@/lib/session-utils";
 
 type AuthMode = "login" | "signup";
 
@@ -94,6 +98,15 @@ export default function AuthPage() {
     getSessionUserWithRetry(supabase).then(async ({ user, error: sessionError }) => {
       if (!active) return;
       if (sessionError) {
+        if (isSessionTimeoutError(sessionError) || isSessionLockError(sessionError)) {
+          try {
+            await supabase.auth.signOut({ scope: "local" });
+          } catch {
+            // Ignora falha ao limpar sessao local.
+          }
+          setMessage("Sessao lenta para validar. Limpamos a sessao local para liberar o login.");
+          return;
+        }
         setError(sessionError.message);
         return;
       }

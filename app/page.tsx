@@ -810,14 +810,20 @@ export default function FeedPage() {
 
   async function signOut() {
     const supabase = getSupabaseBrowserClient();
-    await supabase.auth.signOut();
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) {
+      await supabase.auth.signOut({ scope: "local" });
+    }
     router.replace("/auth");
   }
 
   async function lockApp() {
     const supabase = getSupabaseBrowserClient();
     await fetch("/api/access", { method: "DELETE" });
-    await supabase.auth.signOut();
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) {
+      await supabase.auth.signOut({ scope: "local" });
+    }
     router.replace("/acesso");
   }
 
