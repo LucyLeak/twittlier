@@ -141,6 +141,64 @@ create table if not exists public.live_messages (
   )
 );
 
+create table if not exists public.live_overlay_assets (
+  id uuid primary key default gen_random_uuid(),
+  room_owner_user_id uuid not null references public.accounts(user_id) on delete cascade,
+  created_by_user_id uuid not null references public.accounts(user_id) on delete cascade,
+  name text not null,
+  command text not null,
+  media_url text not null,
+  media_type text not null,
+  shortcut_key text,
+  image_duration_seconds integer,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint live_overlay_assets_name_nonempty check (
+    length(trim(name)) > 0
+  ),
+  constraint live_overlay_assets_command_format check (
+    command ~ '^![a-z0-9_-]{2,32}$'
+  ),
+  constraint live_overlay_assets_media_type_valid check (
+    media_type in ('sound', 'image', 'video')
+  ),
+  constraint live_overlay_assets_shortcut_key_valid check (
+    shortcut_key is null or length(trim(shortcut_key)) between 1 and 24
+  ),
+  constraint live_overlay_assets_image_duration_valid check (
+    image_duration_seconds is null or image_duration_seconds between 2 and 120
+  )
+);
+
+create table if not exists public.live_overlay_events (
+  id uuid primary key default gen_random_uuid(),
+  room_owner_user_id uuid not null references public.accounts(user_id) on delete cascade,
+  asset_id uuid not null references public.live_overlay_assets(id) on delete cascade,
+  asset_name text not null,
+  asset_command text not null,
+  media_url text not null,
+  media_type text not null,
+  image_duration_seconds integer,
+  triggered_by_user_id uuid not null references public.accounts(user_id) on delete cascade,
+  triggered_by_handle text not null,
+  created_at timestamptz not null default now(),
+  constraint live_overlay_events_name_nonempty check (
+    length(trim(asset_name)) > 0
+  ),
+  constraint live_overlay_events_command_format check (
+    asset_command ~ '^![a-z0-9_-]{2,32}$'
+  ),
+  constraint live_overlay_events_media_type_valid check (
+    media_type in ('sound', 'image', 'video')
+  ),
+  constraint live_overlay_events_trigger_handle_nonempty check (
+    length(trim(triggered_by_handle)) > 0
+  ),
+  constraint live_overlay_events_image_duration_valid check (
+    image_duration_seconds is null or image_duration_seconds between 2 and 120
+  )
+);
+
 alter table if exists public.posts drop constraint if exists posts_user_id_fkey;
 alter table if exists public.posts
 add constraint posts_user_id_fkey
@@ -157,6 +215,11 @@ create index if not exists follows_following_user_idx on public.follows(followin
 create index if not exists blocks_blocked_user_idx on public.blocks(blocked_user_id);
 create index if not exists live_messages_room_created_idx on public.live_messages(room_owner_user_id, created_at);
 create index if not exists live_messages_status_idx on public.live_messages(moderation_status);
+create unique index if not exists live_overlay_assets_room_command_idx on public.live_overlay_assets(room_owner_user_id, command);
+create index if not exists live_overlay_assets_room_created_idx on public.live_overlay_assets(room_owner_user_id, created_at desc);
+create index if not exists live_overlay_assets_room_type_idx on public.live_overlay_assets(room_owner_user_id, media_type);
+create index if not exists live_overlay_events_room_created_idx on public.live_overlay_events(room_owner_user_id, created_at desc);
+create index if not exists live_overlay_events_asset_created_idx on public.live_overlay_events(asset_id, created_at desc);
 
 create table if not exists public.post_likes (
   post_id uuid not null references public.posts(id) on delete cascade,
@@ -180,6 +243,14 @@ alter table public.posts enable row level security;
 alter table public.follows enable row level security;
 alter table public.blocks enable row level security;
 alter table public.live_messages enable row level security;
+alter table public.live_overlay_assets enable row level security;
+alter table public.live_overlay_events enable row level security;
+
+drop trigger if exists live_overlay_assets_set_updated_at on public.live_overlay_assets;
+create trigger live_overlay_assets_set_updated_at
+before update on public.live_overlay_assets
+for each row
+execute function public.update_updated_at_column();
 
 drop policy if exists "accounts_select_authenticated" on public.accounts;
 create policy "accounts_select_authenticated"
@@ -385,6 +456,111 @@ using (
     from public.accounts me
     where me.user_id = auth.uid()
       and me.is_moderator = true
+  )
+);
+
+drop policy if exists "live_overlay_assets_select_moderator" on public.live_overlay_assets;
+create policy "live_overlay_assets_select_moderator"
+on public.live_overlay_assets
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.accounts me
+    where me.user_id = auth.uid()
+      and me.is_moderator = true
+  )
+);
+
+drop policy if exists "live_overlay_assets_insert_moderator" on public.live_overlay_assets;
+create policy "live_overlay_assets_insert_moderator"
+on public.live_overlay_assets
+for insert
+to authenticated
+with check (
+  auth.uid() = created_by_user_id
+  and exists (
+    select 1
+    from public.accounts me
+    where me.user_id = auth.uid()
+      and me.is_moderator = true
+  )
+);
+
+drop policy if exists "live_overlay_assets_update_moderator" on public.live_overlay_assets;
+create policy "live_overlay_assets_update_moderator"
+on public.live_overlay_assets
+for update
+to authenticated
+using (
+  exists (
+    select 1
+    from public.accounts me
+    where me.user_id = auth.uid()
+      and me.is_moderator = true
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.accounts me
+    where me.user_id = auth.uid()
+      and me.is_moderator = true
+  )
+);
+
+drop policy if exists "live_overlay_assets_delete_moderator" on public.live_overlay_assets;
+create policy "live_overlay_assets_delete_moderator"
+on public.live_overlay_assets
+for delete
+to authenticated
+using (
+  exists (
+    select 1
+    from public.accounts me
+    where me.user_id = auth.uid()
+      and me.is_moderator = true
+  )
+);
+
+drop policy if exists "live_overlay_events_select_moderator" on public.live_overlay_events;
+create policy "live_overlay_events_select_moderator"
+on public.live_overlay_events
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.accounts me
+    where me.user_id = auth.uid()
+      and me.is_moderator = true
+  )
+);
+
+drop policy if exists "live_overlay_events_insert_moderator" on public.live_overlay_events;
+create policy "live_overlay_events_insert_moderator"
+on public.live_overlay_events
+for insert
+to authenticated
+with check (
+  auth.uid() = triggered_by_user_id
+  and exists (
+    select 1
+    from public.accounts me
+    where me.user_id = auth.uid()
+      and me.is_moderator = true
+  )
+  and exists (
+    select 1
+    from public.live_overlay_assets asset
+    where asset.id = asset_id
+      and asset.room_owner_user_id = room_owner_user_id
+      and asset.command = asset_command
+      and asset.name = asset_name
+      and asset.media_url = media_url
+      and asset.media_type = media_type
+      and coalesce(asset.image_duration_seconds, -1) = coalesce(image_duration_seconds, -1)
   )
 );
 

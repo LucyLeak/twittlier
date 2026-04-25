@@ -11,13 +11,16 @@ export async function proxy(request: NextRequest) {
   const suppliedOverlayKey = searchParams.get("key");
   const hasValidOverlayKey =
     Boolean(expectedOverlayKey) && suppliedOverlayKey === expectedOverlayKey;
-  const isOverlayRoute = pathname === "/live" && searchParams.get("overlay") === "1";
+  const isOverlayRoute =
+    (pathname === "/live" && searchParams.get("overlay") === "1") ||
+    pathname === "/live/painel/overlay";
 
   const isAccessRoute =
     pathname === "/acesso" ||
     pathname === "/api/access" ||
     pathname === "/api/live-overlay" ||
-    pathname === "/api/live-cleanup";
+    pathname === "/api/live-cleanup" ||
+    pathname === "/api/live-stage-feed";
 
   if (!hasAccess && !isAccessRoute && !(isOverlayRoute && hasValidOverlayKey)) {
     return NextResponse.redirect(new URL("/acesso", request.url));

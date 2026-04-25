@@ -1,0 +1,474 @@
+:global(html.tw-mod-panel-html) {
+  background:
+    radial-gradient(circle at top, rgba(98, 197, 255, 0.16), transparent 30%),
+    linear-gradient(180deg, #07131e 0%, #081019 100%);
+}
+
+:global(body.tw-mod-panel-body) {
+  background:
+    radial-gradient(circle at 15% 15%, rgba(65, 230, 184, 0.15), transparent 26%),
+    radial-gradient(circle at 85% 12%, rgba(255, 154, 87, 0.12), transparent 24%),
+    linear-gradient(180deg, #06111b 0%, #09121b 52%, #050c13 100%);
+  color: #eff7ff;
+  min-height: 100vh;
+}
+
+:global(body.tw-mod-panel-body .tw-mobile-nav) {
+  display: none !important;
+}
+
+.shell {
+  width: min(1480px, calc(100vw - 28px));
+  margin: 0 auto;
+  padding: 28px 0 56px;
+  display: grid;
+  gap: 20px;
+}
+
+.heroCard,
+.card,
+.librarySection {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(131, 186, 232, 0.26);
+  background:
+    linear-gradient(180deg, rgba(12, 27, 41, 0.96), rgba(7, 18, 28, 0.95)),
+    rgba(8, 16, 25, 0.88);
+  box-shadow:
+    0 18px 60px rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(20px);
+}
+
+.heroCard::before,
+.card::before,
+.librarySection::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(120deg, rgba(92, 237, 193, 0.1), transparent 34%),
+    linear-gradient(300deg, rgba(110, 181, 255, 0.08), transparent 28%);
+}
+
+.heroCard {
+  border-radius: 28px;
+  padding: 26px;
+}
+
+.card,
+.librarySection {
+  border-radius: 24px;
+  padding: 22px;
+}
+
+.heroTop,
+.sectionHead,
+.cardHead,
+.libraryColumnHead,
+.assetCardTop,
+.activityTop,
+.heroMeta,
+.obsActions,
+.noticeBar,
+.assetActions,
+.inlineFieldRow,
+.formFooter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.heroTop,
+.sectionHead,
+.cardHead,
+.libraryColumnHead,
+.activityTop {
+  justify-content: space-between;
+}
+
+.heroGrid,
+.grid,
+.libraryColumns,
+.formColumns {
+  display: grid;
+  gap: 18px;
+}
+
+.heroGrid,
+.grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.formColumns {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.libraryColumns {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  font: 700 0.78rem/1 "IBM Plex Mono", "Courier New", monospace;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #81e6c9;
+}
+
+.title {
+  margin: 0;
+  font: 600 clamp(2.1rem, 4vw, 3.7rem) / 0.96 "Cormorant Garamond", "Times New Roman", serif;
+  letter-spacing: 0.01em;
+  max-width: 16ch;
+}
+
+.cardTitle {
+  margin: 0;
+  font: 600 clamp(1.25rem, 2vw, 1.75rem) / 1.02 "Cormorant Garamond", "Times New Roman", serif;
+}
+
+.lead,
+.activityMeta,
+.assetMeta,
+.sideHint {
+  margin: 0;
+  color: #9eb7c9;
+  line-height: 1.45;
+}
+
+.lead {
+  margin-top: 10px;
+  max-width: 66ch;
+}
+
+.heroMeta {
+  justify-content: flex-end;
+}
+
+.metaChip,
+.counterChip,
+.assetBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(129, 230, 201, 0.28);
+  background: rgba(129, 230, 201, 0.08);
+  font: 600 0.77rem/1 "IBM Plex Mono", "Courier New", monospace;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #dffcf5;
+}
+
+.counterChip {
+  background: rgba(109, 181, 255, 0.14);
+  border-color: rgba(109, 181, 255, 0.24);
+  color: #dbebff;
+}
+
+.assetBadge {
+  min-height: 28px;
+  font-size: 0.72rem;
+}
+
+.inlineForm,
+.field,
+.assetForm {
+  display: grid;
+  gap: 10px;
+}
+
+.fieldLabel {
+  font: 600 0.76rem/1 "IBM Plex Mono", "Courier New", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #80a6bf;
+}
+
+.textInput,
+.codeBlock {
+  width: 100%;
+  border: 1px solid rgba(110, 181, 255, 0.25);
+  background: rgba(3, 9, 15, 0.76);
+  color: #f6fbff;
+  font: inherit;
+  border-radius: 16px;
+  padding: 14px 16px;
+  outline: none;
+  transition:
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.textInput:focus {
+  border-color: rgba(129, 230, 201, 0.75);
+  box-shadow: 0 0 0 4px rgba(129, 230, 201, 0.12);
+  transform: translateY(-1px);
+}
+
+.textInput::placeholder {
+  color: #638199;
+}
+
+.codeBlock {
+  display: block;
+  overflow-wrap: anywhere;
+  font-family: "IBM Plex Mono", "Courier New", monospace;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.primaryButton,
+.secondaryButton,
+.ghostButton {
+  appearance: none;
+  border-radius: 999px;
+  padding: 12px 16px;
+  font: 700 0.8rem/1 "IBM Plex Mono", "Courier New", monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.primaryButton:hover,
+.secondaryButton:hover,
+.ghostButton:hover {
+  transform: translateY(-1px);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled,
+.ghostButton:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+}
+
+.primaryButton {
+  border: 1px solid rgba(129, 230, 201, 0.6);
+  background: linear-gradient(135deg, #47e2b6 0%, #1fb6ff 100%);
+  color: #04101a;
+  box-shadow: 0 12px 30px rgba(31, 182, 255, 0.22);
+}
+
+.secondaryButton {
+  border: 1px solid rgba(111, 181, 255, 0.34);
+  background: rgba(111, 181, 255, 0.12);
+  color: #eaf4ff;
+}
+
+.ghostButton {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  color: #cfe0ec;
+}
+
+.obsBox,
+.uploadField,
+.previewBox,
+.activityItem,
+.assetCard,
+.emptyState {
+  position: relative;
+  border-radius: 20px;
+  border: 1px solid rgba(139, 174, 205, 0.18);
+  background: rgba(5, 13, 20, 0.48);
+}
+
+.obsBox {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  margin-top: 18px;
+}
+
+.obsActions {
+  justify-content: flex-start;
+}
+
+.noticeBar {
+  margin-top: 18px;
+  justify-content: space-between;
+  padding-top: 16px;
+  border-top: 1px solid rgba(130, 170, 199, 0.14);
+  color: #8eb0c7;
+  font-size: 0.92rem;
+}
+
+.statusText,
+.errorText {
+  margin: 12px 0 0;
+  font-weight: 600;
+}
+
+.statusText {
+  color: #9ef1d6;
+}
+
+.errorText {
+  color: #ff9898;
+}
+
+.uploadField {
+  display: grid;
+  gap: 6px;
+  cursor: pointer;
+  padding: 18px;
+  border-style: dashed;
+}
+
+.uploadTitle {
+  font-weight: 700;
+}
+
+.uploadMeta {
+  color: #89a7bc;
+  font-size: 0.92rem;
+}
+
+.hiddenInput {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.previewBox {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.previewTitle,
+.assetName {
+  margin: 0;
+}
+
+.previewTitle {
+  font: 700 0.75rem/1 "IBM Plex Mono", "Courier New", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #8fb6d1;
+}
+
+.previewMedia,
+.cardMedia,
+.compactPreview {
+  width: 100%;
+  border-radius: 18px;
+  background: #01070d;
+}
+
+.previewMedia,
+.cardMedia {
+  max-height: 340px;
+  object-fit: contain;
+}
+
+.compactPreview {
+  min-height: 54px;
+}
+
+.formFooter,
+.assetActions {
+  justify-content: space-between;
+}
+
+.activityList,
+.assetList {
+  display: grid;
+  gap: 12px;
+}
+
+.activityItem,
+.assetCard,
+.emptyState {
+  padding: 16px;
+}
+
+.activityMeta {
+  font-size: 0.92rem;
+}
+
+.librarySection {
+  display: grid;
+  gap: 18px;
+}
+
+.libraryColumn {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.libraryTitle {
+  margin: 0;
+  font: 700 0.92rem/1 "IBM Plex Mono", "Courier New", monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #d8ebf8;
+}
+
+.assetCard {
+  display: grid;
+  gap: 12px;
+}
+
+.assetName {
+  font-size: 1.08rem;
+  line-height: 1.1;
+}
+
+.emptyState {
+  color: #9ab6c9;
+  min-height: 112px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+@media (max-width: 1180px) {
+  .heroGrid,
+  .grid,
+  .libraryColumns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 780px) {
+  .shell {
+    width: min(100vw - 18px, 100%);
+    padding-top: 16px;
+    padding-bottom: 24px;
+  }
+
+  .heroCard,
+  .card,
+  .librarySection {
+    border-radius: 20px;
+    padding: 18px;
+  }
+
+  .formColumns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .noticeBar,
+  .formFooter,
+  .assetActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

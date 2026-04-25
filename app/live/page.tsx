@@ -798,6 +798,19 @@ export default function LivePage() {
                 Ver perfil da live
               </button>
             ) : null}
+            {canModerateLive ? (
+              <button
+                className="retro-button tw-small-button"
+                type="button"
+                onClick={() =>
+                  router.push(
+                    `/live/painel?stream=${encodeURIComponent(roomOwnerAccount?.handle || roomHandle)}`
+                  )
+                }
+              >
+                Abrir painel MOD
+              </button>
+            ) : null}
           </div>
         </div>
         <p className="retro-muted">
