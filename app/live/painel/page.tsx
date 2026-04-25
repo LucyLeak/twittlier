@@ -498,10 +498,10 @@ export default function LiveModPanelPage() {
 
   async function copyObsUrl() {
     if (!origin || !roomOwnerAccount) return;
-    const obsUrl = `${origin}/live/painel/overlay?stream=${roomOwnerAccount.handle}&key=SUA_CHAVE_OVERLAY`;
+    const obsUrl = `${origin}/live/painel/overlay?stream=${roomOwnerAccount.handle}`;
     try {
       await navigator.clipboard.writeText(obsUrl);
-      setStatus("URL base do OBS copiada. Agora substitua SUA_CHAVE_OVERLAY pela chave real.");
+      setStatus("URL do OBS copiada.");
     } catch {
       setStatus("Nao consegui copiar automatico, mas a URL ja esta visivel no painel.");
     }
@@ -537,7 +537,7 @@ export default function LiveModPanelPage() {
 
   const obsUrl =
     origin && roomOwnerAccount
-      ? `${origin}/live/painel/overlay?stream=${roomOwnerAccount.handle}&key=SUA_CHAVE_OVERLAY`
+      ? `${origin}/live/painel/overlay?stream=${roomOwnerAccount.handle}`
       : "";
 
   return (

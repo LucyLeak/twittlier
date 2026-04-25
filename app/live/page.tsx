@@ -73,7 +73,6 @@ export default function LivePage() {
   const [origin, setOrigin] = useState("");
   const [overlayMode, setOverlayMode] = useState(false);
   const [requestedHandle, setRequestedHandle] = useState("");
-  const [overlayAccessKey, setOverlayAccessKey] = useState("");
   const [roomHandle, setRoomHandle] = useState("");
   const [roomHandleInput, setRoomHandleInput] = useState("");
   const [user, setUser] = useState<User | null>(null);
@@ -130,11 +129,11 @@ export default function LivePage() {
     overlaySeenMessageIdsRef.current = new Set();
     overlayInitializedRef.current = false;
     setOverlayNewMessageIds(new Set());
-  }, [overlayMode, requestedHandle, overlayAccessKey]);
+  }, [overlayMode, requestedHandle]);
 
   const embedUrl = useMemo(() => {
     if (!origin || !roomOwnerAccount) return "";
-    return `${origin}/live?stream=${roomOwnerAccount.handle}&overlay=1&key=SUA_CHAVE_OVERLAY`;
+    return `${origin}/live?stream=${roomOwnerAccount.handle}&overlay=1`;
   }, [origin, roomOwnerAccount]);
 
   function normalizePostShareLink(raw: string) {
@@ -204,11 +203,10 @@ export default function LivePage() {
     return parts;
   }
 
-  async function loadOverlayMessages(streamHandle: string, key: string) {
-    const response = await fetch(
-      `/api/live-overlay?stream=${encodeURIComponent(streamHandle)}&key=${encodeURIComponent(key)}`,
-      { cache: "no-store" }
-    );
+  async function loadOverlayMessages(streamHandle: string) {
+    const response = await fetch(`/api/live-overlay?stream=${encodeURIComponent(streamHandle)}`, {
+      cache: "no-store"
+    });
     const payload = (await response.json().catch(() => null)) as
       | {
           error?: string;
@@ -379,19 +377,14 @@ export default function LivePage() {
       const rawStream = searchParams?.get("stream") || "";
       const normalizedStream = rawStream ? normalizeHandle(rawStream) : "";
       const isOverlay = searchParams?.get("overlay") === "1";
-      const rawOverlayKey = searchParams?.get("key") || "";
       setRequestedHandle(normalizedStream);
       setOverlayMode(isOverlay);
-      setOverlayAccessKey(rawOverlayKey);
 
       if (isOverlay) {
         if (!normalizedStream) {
           throw new Error("URL de overlay sem stream.");
         }
-        if (!rawOverlayKey) {
-          throw new Error("URL de overlay sem chave de acesso.");
-        }
-        await loadOverlayMessages(normalizedStream, rawOverlayKey);
+        await loadOverlayMessages(normalizedStream);
         return;
       }
 
@@ -453,10 +446,10 @@ export default function LivePage() {
 
   useEffect(() => {
     if (overlayMode) {
-      if (!requestedHandle || !overlayAccessKey) return;
+      if (!requestedHandle) return;
       let active = true;
       const interval = setInterval(() => {
-        loadOverlayMessages(requestedHandle, overlayAccessKey).catch((caughtError) => {
+        loadOverlayMessages(requestedHandle).catch((caughtError) => {
           if (!active) return;
           const messageText =
             caughtError instanceof Error ? caughtError.message : "Falha ao atualizar overlay.";
@@ -485,7 +478,7 @@ export default function LivePage() {
       active = false;
       clearInterval(interval);
     };
-  }, [overlayMode, requestedHandle, overlayAccessKey, roomOwnerAccount, viewerAccount]);
+  }, [overlayMode, requestedHandle, roomOwnerAccount, viewerAccount]);
 
   useEffect(() => {
     if (!overlayMode) return;
@@ -857,9 +850,6 @@ export default function LivePage() {
             <p className="retro-muted">
               URL para OBS overlay:{" "}
               <code className="tw-live-code">{embedUrl || "carregando..."}</code>
-            </p>
-            <p className="retro-muted">
-              Substitua <code>SUA_CHAVE_OVERLAY</code> pela chave privada <code>OBS_OVERLAY_KEY</code>.
             </p>
           </details>
         </section>

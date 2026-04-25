@@ -7,13 +7,8 @@ export async function proxy(request: NextRequest) {
   const accessCookie = request.cookies.get(ACCESS_COOKIE_NAME)?.value;
   const hasAccess = accessSecret ? await isAccessCookieValid(accessCookie, accessSecret) : false;
   const searchParams = request.nextUrl.searchParams;
-  const expectedOverlayKey = process.env.OBS_OVERLAY_KEY;
-  const suppliedOverlayKey = searchParams.get("key");
-  const hasValidOverlayKey =
-    Boolean(expectedOverlayKey) && suppliedOverlayKey === expectedOverlayKey;
-  const isOverlayRoute =
-    (pathname === "/live" && searchParams.get("overlay") === "1") ||
-    pathname === "/live/painel/overlay";
+  const isLegacyOverlayRoute = pathname === "/live" && searchParams.get("overlay") === "1";
+  const isStageOverlayRoute = pathname === "/live/painel/overlay";
 
   const isAccessRoute =
     pathname === "/acesso" ||
@@ -22,7 +17,7 @@ export async function proxy(request: NextRequest) {
     pathname === "/api/live-cleanup" ||
     pathname === "/api/live-stage-feed";
 
-  if (!hasAccess && !isAccessRoute && !(isOverlayRoute && hasValidOverlayKey)) {
+  if (!hasAccess && !isAccessRoute && !isStageOverlayRoute && !isLegacyOverlayRoute) {
     return NextResponse.redirect(new URL("/acesso", request.url));
   }
 

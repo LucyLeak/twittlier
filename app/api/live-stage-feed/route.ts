@@ -20,27 +20,10 @@ function getAdminClient() {
   });
 }
 
-function getExpectedOverlayKey() {
-  return process.env.OBS_OVERLAY_KEY ?? "";
-}
-
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const stream = normalizeHandle(url.searchParams.get("stream") || "");
-    const key = url.searchParams.get("key") || "";
-    const expectedKey = getExpectedOverlayKey();
-
-    if (!expectedKey) {
-      return NextResponse.json(
-        { error: "OBS_OVERLAY_KEY nao esta configurada no ambiente." },
-        { status: 500 }
-      );
-    }
-
-    if (!key || key !== expectedKey) {
-      return NextResponse.json({ error: "Chave de overlay invalida." }, { status: 401 });
-    }
 
     if (!stream) {
       return NextResponse.json({ error: "Parametro stream invalido." }, { status: 400 });

@@ -34,12 +34,8 @@ export default function LiveStageOverlayPage() {
   const completionTimeoutRef = useRef<number | null>(null);
   const noticeTimeoutRef = useRef<number | null>(null);
 
-  const [streamHandle, setStreamHandle] = useState("");
-  const [overlayKey, setOverlayKey] = useState("");
-  const [roomHandle, setRoomHandle] = useState("");
   const [activeVisualEvent, setActiveVisualEvent] = useState<OverlayEvent | null>(null);
   const [soundNoticeEvent, setSoundNoticeEvent] = useState<OverlayEvent | null>(null);
-  const [error, setError] = useState("");
 
   function clearTimers() {
     if (completionTimeoutRef.current) {
@@ -78,7 +74,6 @@ export default function LiveStageOverlayPage() {
 
     processingRef.current = true;
     currentEventRef.current = nextEvent;
-    setError("");
 
     if (nextEvent.media_type === "sound") {
       setActiveVisualEvent(null);
@@ -89,9 +84,11 @@ export default function LiveStageOverlayPage() {
         audioRef.current.currentTime = 0;
         audioRef.current.src = nextEvent.media_url;
         audioRef.current.load();
-        void audioRef.current.play().catch(() => {
-          setError("OBS bloqueou o autoplay do audio. Ative audio automatico no Browser Source.");
-        });
+        void audioRef.current
+          .play()
+          .catch((caughtError) =>
+            console.warn("Falha ao tocar audio no overlay do OBS:", caughtError)
+          );
       }
 
       noticeTimeoutRef.current = window.setTimeout(() => {
@@ -120,16 +117,14 @@ export default function LiveStageOverlayPage() {
     }, VIDEO_FALLBACK_TIMEOUT_MS);
   }
 
-  async function loadOverlayFeed(targetStream: string, targetKey: string) {
-    const response = await fetch(
-      `/api/live-stage-feed?stream=${encodeURIComponent(targetStream)}&key=${encodeURIComponent(targetKey)}`,
-      { cache: "no-store" }
-    );
+  async function loadOverlayFeed(targetStream: string) {
+    const response = await fetch(`/api/live-stage-feed?stream=${encodeURIComponent(targetStream)}`, {
+      cache: "no-store"
+    });
 
     const payload = (await response.json().catch(() => null)) as
       | {
           error?: string;
-          roomOwner?: { handle?: string | null };
           events?: OverlayEvent[];
         }
       | null;
@@ -138,7 +133,6 @@ export default function LiveStageOverlayPage() {
       throw new Error(payload?.error || "Falha ao atualizar o overlay do palco.");
     }
 
-    setRoomHandle(payload?.roomOwner?.handle || "");
     const overlayEvents = payload?.events ?? [];
     const seenIds = seenIdsRef.current;
 
@@ -171,13 +165,9 @@ export default function LiveStageOverlayPage() {
 
     const params = new URLSearchParams(window.location.search);
     const requestedStream = params.get("stream") || "";
-    const requestedKey = params.get("key") || "";
 
-    setStreamHandle(requestedStream);
-    setOverlayKey(requestedKey);
-
-    if (!requestedStream || !requestedKey) {
-      setError("URL do overlay incompleta. Informe stream e key.");
+    if (!requestedStream) {
+      console.warn("Overlay sem parametro stream.");
       return () => {
         document.documentElement.classList.remove("tw-stage-overlay-html");
         document.body.classList.remove("tw-stage-overlay-body");
@@ -186,19 +176,21 @@ export default function LiveStageOverlayPage() {
 
     let active = true;
 
-    loadOverlayFeed(requestedStream, requestedKey).catch((caughtError) => {
+    loadOverlayFeed(requestedStream).catch((caughtError) => {
       if (!active) return;
-      const messageText =
-        caughtError instanceof Error ? caughtError.message : "Falha ao carregar overlay.";
-      setError(messageText);
+      console.warn(
+        "Falha ao carregar overlay do palco:",
+        caughtError instanceof Error ? caughtError.message : caughtError
+      );
     });
 
     const interval = window.setInterval(() => {
-      loadOverlayFeed(requestedStream, requestedKey).catch((caughtError) => {
+      loadOverlayFeed(requestedStream).catch((caughtError) => {
         if (!active) return;
-        const messageText =
-          caughtError instanceof Error ? caughtError.message : "Falha ao atualizar overlay.";
-        setError(messageText);
+        console.warn(
+          "Falha ao atualizar overlay do palco:",
+          caughtError instanceof Error ? caughtError.message : caughtError
+        );
       });
     }, STAGE_OVERLAY_POLL_MS);
 
@@ -217,9 +209,11 @@ export default function LiveStageOverlayPage() {
     videoRef.current.pause();
     videoRef.current.currentTime = 0;
     videoRef.current.load();
-    void videoRef.current.play().catch(() => {
-      setError("OBS bloqueou o autoplay do video. Verifique as configuracoes do Browser Source.");
-    });
+    void videoRef.current
+      .play()
+      .catch((caughtError) =>
+        console.warn("Falha ao tocar video no overlay do OBS:", caughtError)
+      );
   }, [activeVisualEvent]);
 
   return (
@@ -233,50 +227,35 @@ export default function LiveStageOverlayPage() {
 
       {activeVisualEvent ? (
         <section className={styles.visualLayer}>
-          <div className={styles.visualChrome}>
-            <div className={styles.visualMeta}>
-              <span className={styles.metaPill}>@{roomHandle || streamHandle}</span>
-              <span className={styles.metaPill}>{activeVisualEvent.asset_command}</span>
-            </div>
+          {activeVisualEvent.media_type === "image" ? (
+            <img
+              className={styles.visualMedia}
+              src={activeVisualEvent.media_url}
+              alt={activeVisualEvent.asset_name}
+            />
+          ) : null}
 
-            {activeVisualEvent.media_type === "image" ? (
-              <img
-                className={styles.visualMedia}
-                src={activeVisualEvent.media_url}
-                alt={activeVisualEvent.asset_name}
-              />
-            ) : null}
-
-            {activeVisualEvent.media_type === "video" ? (
-              <video
-                key={activeVisualEvent.id}
-                ref={videoRef}
-                className={styles.visualMedia}
-                src={activeVisualEvent.media_url}
-                autoPlay
-                playsInline
-                onEnded={finishCurrentEvent}
-                onError={finishCurrentEvent}
-              />
-            ) : null}
-          </div>
+          {activeVisualEvent.media_type === "video" ? (
+            <video
+              key={activeVisualEvent.id}
+              ref={videoRef}
+              className={styles.visualMedia}
+              src={activeVisualEvent.media_url}
+              autoPlay
+              playsInline
+              onEnded={finishCurrentEvent}
+              onError={finishCurrentEvent}
+            />
+          ) : null}
         </section>
       ) : null}
 
       {soundNoticeEvent ? (
         <aside className={styles.soundNotice}>
-          <p className={styles.noticeEyebrow}>Som ao vivo</p>
           <p className={styles.noticeText}>
             @{soundNoticeEvent.triggered_by_handle} usou um comando de som:{" "}
             <strong>{soundNoticeEvent.asset_name}</strong>
           </p>
-        </aside>
-      ) : null}
-
-      {error ? (
-        <aside className={styles.errorNotice}>
-          <strong>Overlay OBS</strong>
-          <span>{error}</span>
         </aside>
       ) : null}
     </main>

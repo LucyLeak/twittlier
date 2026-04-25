@@ -24,59 +24,15 @@
 .visualLayer {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
-  padding: clamp(10px, 1.8vw, 30px);
-}
-
-.visualChrome {
-  position: relative;
-  width: min(100%, calc(100vw - clamp(20px, 4vw, 64px)));
-  height: min(100%, calc(100vh - clamp(20px, 4vw, 64px)));
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  align-items: stretch;
-  gap: 12px;
-  padding: clamp(12px, 1.6vw, 22px);
-  border-radius: clamp(20px, 2vw, 34px);
-  border: 1px solid rgba(141, 225, 255, 0.18);
-  background:
-    linear-gradient(180deg, rgba(6, 17, 27, 0.6), rgba(4, 10, 16, 0.3)),
-    radial-gradient(circle at top, rgba(98, 197, 255, 0.18), transparent 52%);
-  box-shadow:
-    0 25px 100px rgba(0, 0, 0, 0.38),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(10px);
-}
-
-.visualMeta {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.metaPill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: rgba(7, 15, 22, 0.7);
-  border: 1px solid rgba(141, 225, 255, 0.14);
-  color: #eef8ff;
-  font: 600 0.76rem/1 "IBM Plex Mono", "Courier New", monospace;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  display: block;
 }
 
 .visualMedia {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  max-height: none;
-  border-radius: clamp(16px, 1.8vw, 28px);
-  object-fit: contain;
-  background: rgba(2, 6, 10, 0.9);
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  background: transparent;
 }
 
 .soundNotice {
@@ -84,62 +40,26 @@
   left: 2.6vw;
   bottom: 3.2vh;
   max-width: min(580px, 72vw);
-  padding: 16px 18px;
-  border-radius: 22px;
-  border: 1px solid rgba(129, 230, 201, 0.28);
-  background:
-    linear-gradient(135deg, rgba(6, 18, 26, 0.92), rgba(9, 23, 17, 0.88)),
-    rgba(0, 0, 0, 0.25);
-  box-shadow: 0 16px 60px rgba(0, 0, 0, 0.28);
+  padding: 0;
+  background: transparent;
   color: #f3fbff;
+  text-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.85),
+    0 0 18px rgba(0, 0, 0, 0.55);
 }
 
-.noticeEyebrow,
 .noticeText {
   margin: 0;
 }
 
-.noticeEyebrow {
-  margin-bottom: 8px;
-  font: 700 0.76rem/1 "IBM Plex Mono", "Courier New", monospace;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #80edcb;
-}
-
 .noticeText {
-  font: 500 1.06rem/1.35 "IBM Plex Sans", "Trebuchet MS", sans-serif;
-}
-
-.errorNotice {
-  position: absolute;
-  top: 18px;
-  right: 18px;
-  display: grid;
-  gap: 6px;
-  max-width: min(420px, 76vw);
-  padding: 14px 16px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 127, 127, 0.28);
-  background: rgba(32, 7, 10, 0.92);
-  color: #ffd8d8;
-  font: 500 0.92rem/1.35 "IBM Plex Sans", "Trebuchet MS", sans-serif;
+  font: 700 clamp(1rem, 1.4vw, 1.45rem) / 1.35 "IBM Plex Sans", "Trebuchet MS", sans-serif;
 }
 
 @media (max-width: 900px) {
-  .visualLayer {
-    padding: 10px;
-  }
-
-  .visualChrome {
-    width: 100%;
-    height: min(100%, calc(100vh - 20px));
-    padding: 12px;
-    border-radius: 24px;
-  }
-
   .visualMedia {
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
   }
 
   .soundNotice {
