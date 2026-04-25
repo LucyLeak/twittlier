@@ -397,6 +397,23 @@
   gap: 12px;
 }
 
+.coordinatePanel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(139, 174, 205, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.coordinateHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .rangeInput {
   flex: 1;
   margin: 0;
@@ -445,21 +462,33 @@
     radial-gradient(circle at 20% 20%, rgba(129, 230, 201, 0.08), transparent 28%),
     linear-gradient(180deg, rgba(5, 17, 25, 0.95), rgba(2, 8, 14, 0.92));
   background-size: 24px 24px, 24px 24px, auto, auto;
+  cursor: default;
+}
+
+.previewStage[data-draggable="true"] {
+  cursor: grab;
+}
+
+.previewStage[data-draggable="true"]:active {
+  cursor: grabbing;
 }
 
 .previewMediaLayer {
   position: absolute;
   inset: 0;
-  display: flex;
-  padding: 4%;
+  pointer-events: none;
 }
 
 .previewMediaFrame {
+  position: absolute;
+  transform: translate(-50%, -50%);
   overflow: hidden;
   border-radius: 18px;
+  border: 1px dashed rgba(129, 230, 201, 0.35);
   box-shadow:
     0 18px 44px rgba(0, 0, 0, 0.26),
     inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  pointer-events: none;
 }
 
 .previewStageMedia {
@@ -697,7 +726,8 @@
   .assetActions,
   .visualEditorHead,
   .previewSurfaceHead,
-  .rangeRow {
+  .rangeRow,
+  .coordinateHead {
     flex-direction: column;
     align-items: stretch;
   }

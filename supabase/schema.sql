@@ -151,7 +151,9 @@ create table if not exists public.live_overlay_assets (
   media_type text not null,
   shortcut_key text,
   image_duration_seconds integer,
-  display_size_percent integer not null default 100,
+  display_size_percent integer not null default 60,
+  display_x_percent integer not null default 50,
+  display_y_percent integer not null default 50,
   display_position text not null default 'center',
   display_fit text not null default 'contain',
   entry_animation text not null default 'fade',
@@ -174,10 +176,17 @@ create table if not exists public.live_overlay_assets (
     image_duration_seconds is null or image_duration_seconds between 2 and 120
   ),
   constraint live_overlay_assets_display_size_valid check (
-    display_size_percent between 20 and 100
+    display_size_percent between 5 and 150
+  ),
+  constraint live_overlay_assets_display_x_valid check (
+    display_x_percent between 0 and 100
+  ),
+  constraint live_overlay_assets_display_y_valid check (
+    display_y_percent between 0 and 100
   ),
   constraint live_overlay_assets_display_position_valid check (
     display_position in (
+      'free',
       'center',
       'top',
       'bottom',
@@ -209,7 +218,9 @@ create table if not exists public.live_overlay_events (
   media_url text not null,
   media_type text not null,
   image_duration_seconds integer,
-  display_size_percent integer not null default 100,
+  display_size_percent integer not null default 60,
+  display_x_percent integer not null default 50,
+  display_y_percent integer not null default 50,
   display_position text not null default 'center',
   display_fit text not null default 'contain',
   entry_animation text not null default 'fade',
@@ -233,10 +244,17 @@ create table if not exists public.live_overlay_events (
     image_duration_seconds is null or image_duration_seconds between 2 and 120
   ),
   constraint live_overlay_events_display_size_valid check (
-    display_size_percent between 20 and 100
+    display_size_percent between 5 and 150
+  ),
+  constraint live_overlay_events_display_x_valid check (
+    display_x_percent between 0 and 100
+  ),
+  constraint live_overlay_events_display_y_valid check (
+    display_y_percent between 0 and 100
   ),
   constraint live_overlay_events_display_position_valid check (
     display_position in (
+      'free',
       'center',
       'top',
       'bottom',
@@ -260,7 +278,13 @@ create table if not exists public.live_overlay_events (
 );
 
 alter table if exists public.live_overlay_assets
-add column if not exists display_size_percent integer not null default 100;
+add column if not exists display_size_percent integer not null default 60;
+
+alter table if exists public.live_overlay_assets
+add column if not exists display_x_percent integer not null default 50;
+
+alter table if exists public.live_overlay_assets
+add column if not exists display_y_percent integer not null default 50;
 
 alter table if exists public.live_overlay_assets
 add column if not exists display_position text not null default 'center';
@@ -275,7 +299,13 @@ alter table if exists public.live_overlay_assets
 add column if not exists audio_volume_percent integer not null default 100;
 
 alter table if exists public.live_overlay_events
-add column if not exists display_size_percent integer not null default 100;
+add column if not exists display_size_percent integer not null default 60;
+
+alter table if exists public.live_overlay_events
+add column if not exists display_x_percent integer not null default 50;
+
+alter table if exists public.live_overlay_events
+add column if not exists display_y_percent integer not null default 50;
 
 alter table if exists public.live_overlay_events
 add column if not exists display_position text not null default 'center';
@@ -293,7 +323,19 @@ alter table if exists public.live_overlay_assets
 drop constraint if exists live_overlay_assets_display_size_valid;
 alter table if exists public.live_overlay_assets
 add constraint live_overlay_assets_display_size_valid
-check (display_size_percent between 20 and 100);
+check (display_size_percent between 5 and 150);
+
+alter table if exists public.live_overlay_assets
+drop constraint if exists live_overlay_assets_display_x_valid;
+alter table if exists public.live_overlay_assets
+add constraint live_overlay_assets_display_x_valid
+check (display_x_percent between 0 and 100);
+
+alter table if exists public.live_overlay_assets
+drop constraint if exists live_overlay_assets_display_y_valid;
+alter table if exists public.live_overlay_assets
+add constraint live_overlay_assets_display_y_valid
+check (display_y_percent between 0 and 100);
 
 alter table if exists public.live_overlay_assets
 drop constraint if exists live_overlay_assets_display_position_valid;
@@ -301,6 +343,7 @@ alter table if exists public.live_overlay_assets
 add constraint live_overlay_assets_display_position_valid
 check (
   display_position in (
+    'free',
     'center',
     'top',
     'bottom',
@@ -335,7 +378,19 @@ alter table if exists public.live_overlay_events
 drop constraint if exists live_overlay_events_display_size_valid;
 alter table if exists public.live_overlay_events
 add constraint live_overlay_events_display_size_valid
-check (display_size_percent between 20 and 100);
+check (display_size_percent between 5 and 150);
+
+alter table if exists public.live_overlay_events
+drop constraint if exists live_overlay_events_display_x_valid;
+alter table if exists public.live_overlay_events
+add constraint live_overlay_events_display_x_valid
+check (display_x_percent between 0 and 100);
+
+alter table if exists public.live_overlay_events
+drop constraint if exists live_overlay_events_display_y_valid;
+alter table if exists public.live_overlay_events
+add constraint live_overlay_events_display_y_valid
+check (display_y_percent between 0 and 100);
 
 alter table if exists public.live_overlay_events
 drop constraint if exists live_overlay_events_display_position_valid;
@@ -343,6 +398,7 @@ alter table if exists public.live_overlay_events
 add constraint live_overlay_events_display_position_valid
 check (
   display_position in (
+    'free',
     'center',
     'top',
     'bottom',
@@ -372,6 +428,62 @@ drop constraint if exists live_overlay_events_audio_volume_valid;
 alter table if exists public.live_overlay_events
 add constraint live_overlay_events_audio_volume_valid
 check (audio_volume_percent between 0 and 100);
+
+update public.live_overlay_assets
+set
+  display_x_percent = case display_position
+    when 'top-left' then 16
+    when 'top' then 50
+    when 'top-right' then 84
+    when 'left' then 16
+    when 'center' then 50
+    when 'right' then 84
+    when 'bottom-left' then 16
+    when 'bottom' then 50
+    when 'bottom-right' then 84
+    else display_x_percent
+  end,
+  display_y_percent = case display_position
+    when 'top-left' then 16
+    when 'top' then 16
+    when 'top-right' then 16
+    when 'left' then 50
+    when 'center' then 50
+    when 'right' then 50
+    when 'bottom-left' then 84
+    when 'bottom' then 84
+    when 'bottom-right' then 84
+    else display_y_percent
+  end
+where display_position <> 'free';
+
+update public.live_overlay_events
+set
+  display_x_percent = case display_position
+    when 'top-left' then 16
+    when 'top' then 50
+    when 'top-right' then 84
+    when 'left' then 16
+    when 'center' then 50
+    when 'right' then 84
+    when 'bottom-left' then 16
+    when 'bottom' then 50
+    when 'bottom-right' then 84
+    else display_x_percent
+  end,
+  display_y_percent = case display_position
+    when 'top-left' then 16
+    when 'top' then 16
+    when 'top-right' then 16
+    when 'left' then 50
+    when 'center' then 50
+    when 'right' then 50
+    when 'bottom-left' then 84
+    when 'bottom' then 84
+    when 'bottom-right' then 84
+    else display_y_percent
+  end
+where display_position <> 'free';
 
 alter table if exists public.posts drop constraint if exists posts_user_id_fkey;
 alter table if exists public.posts
@@ -736,6 +848,8 @@ with check (
       and asset.media_type = media_type
       and coalesce(asset.image_duration_seconds, -1) = coalesce(image_duration_seconds, -1)
       and asset.display_size_percent = display_size_percent
+      and asset.display_x_percent = display_x_percent
+      and asset.display_y_percent = display_y_percent
       and asset.display_position = display_position
       and asset.display_fit = display_fit
       and asset.entry_animation = entry_animation

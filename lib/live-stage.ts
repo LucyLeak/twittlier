@@ -1,5 +1,6 @@
 export type StageAssetType = "sound" | "image" | "video";
 export type StageDisplayPosition =
+  | "free"
   | "center"
   | "top"
   | "bottom"
@@ -23,6 +24,8 @@ export type StageAssetRow = {
   shortcut_key: string | null;
   image_duration_seconds: number | null;
   display_size_percent: number;
+  display_x_percent: number;
+  display_y_percent: number;
   display_position: StageDisplayPosition;
   display_fit: StageDisplayFit;
   entry_animation: StageEntryAnimation;
@@ -41,6 +44,8 @@ export type StageEventRow = {
   media_type: StageAssetType;
   image_duration_seconds: number | null;
   display_size_percent: number;
+  display_x_percent: number;
+  display_y_percent: number;
   display_position: StageDisplayPosition;
   display_fit: StageDisplayFit;
   entry_animation: StageEntryAnimation;
@@ -53,9 +58,13 @@ export type StageEventRow = {
 export const DEFAULT_STAGE_IMAGE_DURATION_SECONDS = 8;
 export const MIN_STAGE_IMAGE_DURATION_SECONDS = 2;
 export const MAX_STAGE_IMAGE_DURATION_SECONDS = 120;
-export const DEFAULT_STAGE_DISPLAY_SIZE_PERCENT = 100;
-export const MIN_STAGE_DISPLAY_SIZE_PERCENT = 20;
-export const MAX_STAGE_DISPLAY_SIZE_PERCENT = 100;
+export const DEFAULT_STAGE_DISPLAY_SIZE_PERCENT = 60;
+export const MIN_STAGE_DISPLAY_SIZE_PERCENT = 5;
+export const MAX_STAGE_DISPLAY_SIZE_PERCENT = 150;
+export const DEFAULT_STAGE_DISPLAY_X_PERCENT = 50;
+export const DEFAULT_STAGE_DISPLAY_Y_PERCENT = 50;
+export const MIN_STAGE_DISPLAY_COORDINATE_PERCENT = 0;
+export const MAX_STAGE_DISPLAY_COORDINATE_PERCENT = 100;
 export const DEFAULT_STAGE_AUDIO_VOLUME_PERCENT = 100;
 export const MIN_STAGE_AUDIO_VOLUME_PERCENT = 0;
 export const MAX_STAGE_AUDIO_VOLUME_PERCENT = 100;
@@ -64,6 +73,7 @@ export const STAGE_OVERLAY_POLL_MS = 2500;
 export const STAGE_PANEL_POLL_MS = 4000;
 export const STAGE_SOUND_NOTICE_MS = 4500;
 export const STAGE_DISPLAY_POSITION_OPTIONS: StageDisplayPosition[] = [
+  "free",
   "center",
   "top",
   "bottom",
@@ -124,6 +134,14 @@ export function clampStageDisplaySizePercent(input: number | null | undefined) {
   );
 }
 
+export function clampStageDisplayCoordinatePercent(input: number | null | undefined) {
+  if (!Number.isFinite(input)) return DEFAULT_STAGE_DISPLAY_X_PERCENT;
+  return Math.min(
+    MAX_STAGE_DISPLAY_COORDINATE_PERCENT,
+    Math.max(MIN_STAGE_DISPLAY_COORDINATE_PERCENT, Math.round(input || 0))
+  );
+}
+
 export function clampStageAudioVolumePercent(input: number | null | undefined) {
   if (!Number.isFinite(input)) return DEFAULT_STAGE_AUDIO_VOLUME_PERCENT;
   return Math.min(
@@ -135,7 +153,7 @@ export function clampStageAudioVolumePercent(input: number | null | undefined) {
 export function normalizeStageDisplayPosition(source: string): StageDisplayPosition {
   return STAGE_DISPLAY_POSITION_OPTIONS.includes(source as StageDisplayPosition)
     ? (source as StageDisplayPosition)
-    : "center";
+    : "free";
 }
 
 export function normalizeStageDisplayFit(source: string): StageDisplayFit {
@@ -165,6 +183,8 @@ export function formatStageAssetType(type: StageAssetType) {
 
 export function formatStageDisplayPosition(position: StageDisplayPosition) {
   switch (position) {
+    case "free":
+      return "Livre";
     case "center":
       return "Centro";
     case "top":

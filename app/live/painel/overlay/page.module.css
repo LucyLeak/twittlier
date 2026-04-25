@@ -30,11 +30,11 @@
 .visualMediaLayer {
   position: absolute;
   inset: 0;
-  display: flex;
-  padding: 2.4%;
 }
 
 .visualFrame {
+  position: absolute;
+  transform: translate(-50%, -50%);
   overflow: hidden;
   background: transparent;
 }
@@ -143,10 +143,6 @@
 }
 
 @media (max-width: 900px) {
-  .visualMediaLayer {
-    padding: 10px;
-  }
-
   .soundNotice {
     left: 12px;
     right: 12px;

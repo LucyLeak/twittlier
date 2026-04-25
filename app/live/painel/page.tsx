@@ -9,25 +9,24 @@ import {
   STAGE_PANEL_POLL_MS,
   DEFAULT_STAGE_AUDIO_VOLUME_PERCENT,
   DEFAULT_STAGE_DISPLAY_SIZE_PERCENT,
+  DEFAULT_STAGE_DISPLAY_X_PERCENT,
+  DEFAULT_STAGE_DISPLAY_Y_PERCENT,
   clampStageImageDurationSeconds,
   clampStageAudioVolumePercent,
+  clampStageDisplayCoordinatePercent,
   clampStageDisplaySizePercent,
   extractStoragePathFromPublicUrl,
   formatStageAssetType,
   formatStageDisplayFit,
-  formatStageDisplayPosition,
   formatStageEntryAnimation,
   inferStageAssetTypeFromMime,
   normalizeStageDisplayFit,
-  normalizeStageDisplayPosition,
   normalizeStageEntryAnimation,
   normalizeShortcutKey,
   normalizeStageCommand,
   STAGE_DISPLAY_FIT_OPTIONS,
-  STAGE_DISPLAY_POSITION_OPTIONS,
   STAGE_ENTRY_ANIMATION_OPTIONS,
   type StageDisplayFit,
-  type StageDisplayPosition,
   type StageEntryAnimation,
   type StageAssetRow,
   type StageAssetType,
@@ -61,7 +60,8 @@ function isTypingTarget(target: EventTarget | null) {
 type StageAssetStyleDraft = {
   imageDurationSeconds: string;
   displaySizePercent: string;
-  displayPosition: StageDisplayPosition;
+  displayXPercent: string;
+  displayYPercent: string;
   displayFit: StageDisplayFit;
   entryAnimation: StageEntryAnimation;
   audioVolumePercent: string;
@@ -73,7 +73,8 @@ function createDefaultStageAssetStyleDraft(): StageAssetStyleDraft {
   return {
     imageDurationSeconds: "8",
     displaySizePercent: String(DEFAULT_STAGE_DISPLAY_SIZE_PERCENT),
-    displayPosition: "center",
+    displayXPercent: String(DEFAULT_STAGE_DISPLAY_X_PERCENT),
+    displayYPercent: String(DEFAULT_STAGE_DISPLAY_Y_PERCENT),
     displayFit: "contain",
     entryAnimation: "fade",
     audioVolumePercent: String(DEFAULT_STAGE_AUDIO_VOLUME_PERCENT)
@@ -84,35 +85,12 @@ function createStageAssetStyleDraftFromAsset(asset: StageAssetRow): StageAssetSt
   return {
     imageDurationSeconds: String(asset.image_duration_seconds ?? 8),
     displaySizePercent: String(asset.display_size_percent),
-    displayPosition: asset.display_position,
+    displayXPercent: String(asset.display_x_percent),
+    displayYPercent: String(asset.display_y_percent),
     displayFit: asset.display_fit,
     entryAnimation: asset.entry_animation,
     audioVolumePercent: String(asset.audio_volume_percent)
   };
-}
-
-function getStageAlignmentStyle(position: StageDisplayPosition): CSSProperties {
-  switch (position) {
-    case "top":
-      return { justifyContent: "center", alignItems: "flex-start" };
-    case "bottom":
-      return { justifyContent: "center", alignItems: "flex-end" };
-    case "left":
-      return { justifyContent: "flex-start", alignItems: "center" };
-    case "right":
-      return { justifyContent: "flex-end", alignItems: "center" };
-    case "top-left":
-      return { justifyContent: "flex-start", alignItems: "flex-start" };
-    case "top-right":
-      return { justifyContent: "flex-end", alignItems: "flex-start" };
-    case "bottom-left":
-      return { justifyContent: "flex-start", alignItems: "flex-end" };
-    case "bottom-right":
-      return { justifyContent: "flex-end", alignItems: "flex-end" };
-    case "center":
-    default:
-      return { justifyContent: "center", alignItems: "center" };
-  }
 }
 
 function summarizeStageAssetVisual(asset: StageAssetRow) {
@@ -122,11 +100,11 @@ function summarizeStageAssetVisual(asset: StageAssetRow) {
   }
 
   const fitLabel = formatStageDisplayFit(asset.display_fit);
-  const positionLabel = formatStageDisplayPosition(asset.display_position);
   const sizeLabel = `${asset.display_size_percent}%`;
+  const coordinateLabel = `X ${asset.display_x_percent}% | Y ${asset.display_y_percent}%`;
   const durationLabel =
     asset.media_type === "image" ? ` | ${asset.image_duration_seconds || 8}s` : "";
-  return `${sizeLabel} | ${positionLabel} | ${fitLabel} | ${animationLabel}${durationLabel}`;
+  return `${sizeLabel} | ${coordinateLabel} | ${fitLabel} | ${animationLabel}${durationLabel}`;
 }
 
 type StageAssetConfiguratorProps = {
@@ -149,15 +127,17 @@ function StageAssetConfigurator({
   onFieldChange
 }: StageAssetConfiguratorProps) {
   const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
+  const previewStageRef = useRef<HTMLDivElement | null>(null);
   const [replayNonce, setReplayNonce] = useState(0);
+  const [isDraggingPreview, setIsDraggingPreview] = useState(false);
 
   const displaySizePercent = clampStageDisplaySizePercent(Number(draft.displaySizePercent));
   const imageDurationSeconds = clampStageImageDurationSeconds(Number(draft.imageDurationSeconds));
   const audioVolumePercent = clampStageAudioVolumePercent(Number(draft.audioVolumePercent));
-  const displayPosition = normalizeStageDisplayPosition(draft.displayPosition);
+  const displayXPercent = clampStageDisplayCoordinatePercent(Number(draft.displayXPercent));
+  const displayYPercent = clampStageDisplayCoordinatePercent(Number(draft.displayYPercent));
   const displayFit = normalizeStageDisplayFit(draft.displayFit);
   const entryAnimation = normalizeStageEntryAnimation(draft.entryAnimation);
-  const alignmentStyle = getStageAlignmentStyle(displayPosition);
 
   useEffect(() => {
     setReplayNonce((current) => current + 1);
@@ -165,8 +145,9 @@ function StageAssetConfigurator({
     assetName,
     draft.audioVolumePercent,
     draft.displayFit,
-    draft.displayPosition,
     draft.displaySizePercent,
+    draft.displayXPercent,
+    draft.displayYPercent,
     draft.entryAnimation,
     draft.imageDurationSeconds,
     mediaType,
@@ -178,13 +159,55 @@ function StageAssetConfigurator({
     audioPreviewRef.current.volume = audioVolumePercent / 100;
   }, [audioVolumePercent, previewUrl]);
 
+  function updateDragPosition(clientX: number, clientY: number) {
+    const stage = previewStageRef.current;
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    const x = ((clientX - rect.left) / rect.width) * 100;
+    const y = ((clientY - rect.top) / rect.height) * 100;
+    onFieldChange("displayXPercent", String(clampStageDisplayCoordinatePercent(x)));
+    onFieldChange("displayYPercent", String(clampStageDisplayCoordinatePercent(y)));
+  }
+
+  function handlePreviewPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (mediaType !== "image" && mediaType !== "video") return;
+    if (!previewUrl) return;
+    event.preventDefault();
+    updateDragPosition(event.clientX, event.clientY);
+    setIsDraggingPreview(true);
+  }
+
+  useEffect(() => {
+    if (!isDraggingPreview) return;
+
+    const onPointerMove = (event: PointerEvent) => {
+      updateDragPosition(event.clientX, event.clientY);
+    };
+    const stopDragging = () => {
+      setIsDraggingPreview(false);
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", stopDragging);
+    window.addEventListener("pointercancel", stopDragging);
+
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", stopDragging);
+      window.removeEventListener("pointercancel", stopDragging);
+    };
+  }, [isDraggingPreview]);
+
   const previewKey = [
     replayNonce,
     assetName,
     mediaType || "none",
     previewUrl,
     displaySizePercent,
-    displayPosition,
+    displayXPercent,
+    displayYPercent,
     displayFit,
     entryAnimation,
     imageDurationSeconds,
@@ -218,30 +241,64 @@ function StageAssetConfigurator({
                   <input
                     className={styles.rangeInput}
                     type="range"
-                    min={20}
-                    max={100}
+                    min={5}
+                    max={150}
                     value={displaySizePercent}
                     onChange={(event) => onFieldChange("displaySizePercent", event.target.value)}
                   />
                   <strong className={styles.rangeValue}>{displaySizePercent}%</strong>
                 </div>
-                <p className={styles.fieldHint}>Controla quanto da tela o asset ocupa.</p>
+                <p className={styles.fieldHint}>
+                  Controla o tamanho da caixa do asset na tela. Pode passar de 100%.
+                </p>
               </label>
 
-              <label className={styles.field}>
-                <span className={styles.fieldLabel}>Posicao</span>
-                <select
-                  className={styles.selectInput}
-                  value={displayPosition}
-                  onChange={(event) => onFieldChange("displayPosition", event.target.value)}
-                >
-                  {STAGE_DISPLAY_POSITION_OPTIONS.map((position) => (
-                    <option key={position} value={position}>
-                      {formatStageDisplayPosition(position)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className={styles.coordinatePanel}>
+                <div className={styles.coordinateHead}>
+                  <span className={styles.fieldLabel}>Posicao livre</span>
+                  <button
+                    className={styles.ghostButton}
+                    type="button"
+                    onClick={() => {
+                      onFieldChange("displayXPercent", String(DEFAULT_STAGE_DISPLAY_X_PERCENT));
+                      onFieldChange("displayYPercent", String(DEFAULT_STAGE_DISPLAY_Y_PERCENT));
+                    }}
+                  >
+                    Centralizar
+                  </button>
+                </div>
+
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Horizontal</span>
+                  <div className={styles.rangeRow}>
+                    <input
+                      className={styles.rangeInput}
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={displayXPercent}
+                      onChange={(event) => onFieldChange("displayXPercent", event.target.value)}
+                    />
+                    <strong className={styles.rangeValue}>{displayXPercent}%</strong>
+                  </div>
+                </label>
+
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Vertical</span>
+                  <div className={styles.rangeRow}>
+                    <input
+                      className={styles.rangeInput}
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={displayYPercent}
+                      onChange={(event) => onFieldChange("displayYPercent", event.target.value)}
+                    />
+                    <strong className={styles.rangeValue}>{displayYPercent}%</strong>
+                  </div>
+                  <p className={styles.fieldHint}>Voce tambem pode arrastar direto no preview.</p>
+                </label>
+              </div>
 
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Encaixe</span>
@@ -318,7 +375,12 @@ function StageAssetConfigurator({
               </span>
             </div>
 
-            <div className={styles.previewStage}>
+            <div
+              ref={previewStageRef}
+              className={styles.previewStage}
+              onPointerDown={handlePreviewPointerDown}
+              data-draggable={mediaType === "image" || mediaType === "video" ? "true" : "false"}
+            >
               {previewUrl ? (
                 mediaType === "sound" ? (
                   <div
@@ -330,12 +392,19 @@ function StageAssetConfigurator({
                     <strong>{assetName || "Novo som"}</strong>
                   </div>
                 ) : (
-                  <div className={styles.previewMediaLayer} style={alignmentStyle}>
+                  <div className={styles.previewMediaLayer}>
                     <div
                       key={previewKey}
                       className={styles.previewMediaFrame}
                       data-animation={entryAnimation}
-                      style={{ width: `${displaySizePercent}%`, height: `${displaySizePercent}%` }}
+                      style={
+                        {
+                          left: `${displayXPercent}%`,
+                          top: `${displayYPercent}%`,
+                          width: `${displaySizePercent}%`,
+                          height: `${displaySizePercent}%`
+                        } satisfies CSSProperties
+                      }
                     >
                       {mediaType === "image" ? (
                         <img
@@ -486,7 +555,7 @@ export default function LiveModPanelPage() {
     const { data, error: fetchError } = await supabase
       .from("live_overlay_assets")
       .select(
-        "id, room_owner_user_id, created_by_user_id, name, command, media_url, media_type, shortcut_key, image_duration_seconds, display_size_percent, display_position, display_fit, entry_animation, audio_volume_percent, created_at, updated_at"
+        "id, room_owner_user_id, created_by_user_id, name, command, media_url, media_type, shortcut_key, image_duration_seconds, display_size_percent, display_x_percent, display_y_percent, display_position, display_fit, entry_animation, audio_volume_percent, created_at, updated_at"
       )
       .eq("room_owner_user_id", roomOwnerUserId)
       .order("created_at", { ascending: false });
@@ -500,7 +569,7 @@ export default function LiveModPanelPage() {
     const { data, error: fetchError } = await supabase
       .from("live_overlay_events")
       .select(
-        "id, room_owner_user_id, asset_id, asset_name, asset_command, media_url, media_type, image_duration_seconds, display_size_percent, display_position, display_fit, entry_animation, audio_volume_percent, triggered_by_user_id, triggered_by_handle, created_at"
+        "id, room_owner_user_id, asset_id, asset_name, asset_command, media_url, media_type, image_duration_seconds, display_size_percent, display_x_percent, display_y_percent, display_position, display_fit, entry_animation, audio_volume_percent, triggered_by_user_id, triggered_by_handle, created_at"
       )
       .eq("room_owner_user_id", roomOwnerUserId)
       .order("created_at", { ascending: false })
@@ -717,7 +786,9 @@ export default function LiveModPanelPage() {
           ? clampStageImageDurationSeconds(Number(draft.imageDurationSeconds))
           : null,
       display_size_percent: clampStageDisplaySizePercent(Number(draft.displaySizePercent)),
-      display_position: normalizeStageDisplayPosition(draft.displayPosition),
+      display_x_percent: clampStageDisplayCoordinatePercent(Number(draft.displayXPercent)),
+      display_y_percent: clampStageDisplayCoordinatePercent(Number(draft.displayYPercent)),
+      display_position: "free" as const,
       display_fit:
         mediaType === "sound" ? "contain" : normalizeStageDisplayFit(draft.displayFit),
       entry_animation: normalizeStageEntryAnimation(draft.entryAnimation),
@@ -768,6 +839,8 @@ export default function LiveModPanelPage() {
         shortcut_key: normalizedShortcut || null,
         image_duration_seconds: styleValues.image_duration_seconds,
         display_size_percent: styleValues.display_size_percent,
+        display_x_percent: styleValues.display_x_percent,
+        display_y_percent: styleValues.display_y_percent,
         display_position: styleValues.display_position,
         display_fit: styleValues.display_fit,
         entry_animation: styleValues.entry_animation,
@@ -815,6 +888,8 @@ export default function LiveModPanelPage() {
         media_type: asset.media_type,
         image_duration_seconds: asset.image_duration_seconds,
         display_size_percent: asset.display_size_percent,
+        display_x_percent: asset.display_x_percent,
+        display_y_percent: asset.display_y_percent,
         display_position: asset.display_position,
         display_fit: asset.display_fit,
         entry_animation: asset.entry_animation,
@@ -889,6 +964,8 @@ export default function LiveModPanelPage() {
         .update({
           image_duration_seconds: styleValues.image_duration_seconds,
           display_size_percent: styleValues.display_size_percent,
+          display_x_percent: styleValues.display_x_percent,
+          display_y_percent: styleValues.display_y_percent,
           display_position: styleValues.display_position,
           display_fit: styleValues.display_fit,
           entry_animation: styleValues.entry_animation,

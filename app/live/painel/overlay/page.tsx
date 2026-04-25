@@ -5,13 +5,12 @@ import {
   STAGE_OVERLAY_POLL_MS,
   STAGE_SOUND_NOTICE_MS,
   clampStageAudioVolumePercent,
+  clampStageDisplayCoordinatePercent,
   clampStageDisplaySizePercent,
   normalizeStageDisplayFit,
-  normalizeStageDisplayPosition,
   normalizeStageEntryAnimation,
   type StageAssetType,
   type StageDisplayFit,
-  type StageDisplayPosition,
   type StageEntryAnimation
 } from "@/lib/live-stage";
 import styles from "./page.module.css";
@@ -25,7 +24,8 @@ type OverlayEvent = {
   media_type: StageAssetType;
   image_duration_seconds: number | null;
   display_size_percent: number;
-  display_position: StageDisplayPosition;
+  display_x_percent: number;
+  display_y_percent: number;
   display_fit: StageDisplayFit;
   entry_animation: StageEntryAnimation;
   audio_volume_percent: number;
@@ -35,30 +35,6 @@ type OverlayEvent = {
 
 const SOUND_FALLBACK_TIMEOUT_MS = 30_000;
 const VIDEO_FALLBACK_TIMEOUT_MS = 180_000;
-
-function getStageAlignmentStyle(position: StageDisplayPosition): CSSProperties {
-  switch (position) {
-    case "top":
-      return { justifyContent: "center", alignItems: "flex-start" };
-    case "bottom":
-      return { justifyContent: "center", alignItems: "flex-end" };
-    case "left":
-      return { justifyContent: "flex-start", alignItems: "center" };
-    case "right":
-      return { justifyContent: "flex-end", alignItems: "center" };
-    case "top-left":
-      return { justifyContent: "flex-start", alignItems: "flex-start" };
-    case "top-right":
-      return { justifyContent: "flex-end", alignItems: "flex-start" };
-    case "bottom-left":
-      return { justifyContent: "flex-start", alignItems: "flex-end" };
-    case "bottom-right":
-      return { justifyContent: "flex-end", alignItems: "flex-end" };
-    case "center":
-    default:
-      return { justifyContent: "center", alignItems: "center" };
-  }
-}
 
 export default function LiveStageOverlayPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -255,12 +231,15 @@ export default function LiveStageOverlayPage() {
       );
   }, [activeVisualEvent]);
 
-  const activeVisualAlignment = activeVisualEvent
-    ? getStageAlignmentStyle(normalizeStageDisplayPosition(activeVisualEvent.display_position))
-    : undefined;
   const activeVisualSizePercent = activeVisualEvent
     ? clampStageDisplaySizePercent(activeVisualEvent.display_size_percent)
     : 100;
+  const activeVisualXPercent = activeVisualEvent
+    ? clampStageDisplayCoordinatePercent(activeVisualEvent.display_x_percent)
+    : 50;
+  const activeVisualYPercent = activeVisualEvent
+    ? clampStageDisplayCoordinatePercent(activeVisualEvent.display_y_percent)
+    : 50;
   const activeVisualFit = activeVisualEvent
     ? normalizeStageDisplayFit(activeVisualEvent.display_fit)
     : "contain";
@@ -282,12 +261,19 @@ export default function LiveStageOverlayPage() {
 
       {activeVisualEvent ? (
         <section className={styles.visualLayer}>
-          <div className={styles.visualMediaLayer} style={activeVisualAlignment}>
+          <div className={styles.visualMediaLayer}>
             <div
-              key={`${activeVisualEvent.id}:${activeVisualAnimation}:${activeVisualSizePercent}:${activeVisualFit}`}
+              key={`${activeVisualEvent.id}:${activeVisualAnimation}:${activeVisualSizePercent}:${activeVisualFit}:${activeVisualXPercent}:${activeVisualYPercent}`}
               className={styles.visualFrame}
               data-animation={activeVisualAnimation}
-              style={{ width: `${activeVisualSizePercent}%`, height: `${activeVisualSizePercent}%` }}
+              style={
+                {
+                  left: `${activeVisualXPercent}%`,
+                  top: `${activeVisualYPercent}%`,
+                  width: `${activeVisualSizePercent}%`,
+                  height: `${activeVisualSizePercent}%`
+                } satisfies CSSProperties
+              }
             >
               {activeVisualEvent.media_type === "image" ? (
                 <img
