@@ -1,10 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { CSSProperties, useEffect, useRef, useState } from "react";
 import {
   STAGE_OVERLAY_POLL_MS,
   STAGE_SOUND_NOTICE_MS,
-  type StageAssetType
+  clampStageAudioVolumePercent,
+  clampStageDisplaySizePercent,
+  normalizeStageDisplayFit,
+  normalizeStageDisplayPosition,
+  normalizeStageEntryAnimation,
+  type StageAssetType,
+  type StageDisplayFit,
+  type StageDisplayPosition,
+  type StageEntryAnimation
 } from "@/lib/live-stage";
 import styles from "./page.module.css";
 
@@ -16,12 +24,41 @@ type OverlayEvent = {
   media_url: string;
   media_type: StageAssetType;
   image_duration_seconds: number | null;
+  display_size_percent: number;
+  display_position: StageDisplayPosition;
+  display_fit: StageDisplayFit;
+  entry_animation: StageEntryAnimation;
+  audio_volume_percent: number;
   triggered_by_handle: string;
   created_at: string;
 };
 
 const SOUND_FALLBACK_TIMEOUT_MS = 30_000;
 const VIDEO_FALLBACK_TIMEOUT_MS = 180_000;
+
+function getStageAlignmentStyle(position: StageDisplayPosition): CSSProperties {
+  switch (position) {
+    case "top":
+      return { justifyContent: "center", alignItems: "flex-start" };
+    case "bottom":
+      return { justifyContent: "center", alignItems: "flex-end" };
+    case "left":
+      return { justifyContent: "flex-start", alignItems: "center" };
+    case "right":
+      return { justifyContent: "flex-end", alignItems: "center" };
+    case "top-left":
+      return { justifyContent: "flex-start", alignItems: "flex-start" };
+    case "top-right":
+      return { justifyContent: "flex-end", alignItems: "flex-start" };
+    case "bottom-left":
+      return { justifyContent: "flex-start", alignItems: "flex-end" };
+    case "bottom-right":
+      return { justifyContent: "flex-end", alignItems: "flex-end" };
+    case "center":
+    default:
+      return { justifyContent: "center", alignItems: "center" };
+  }
+}
 
 export default function LiveStageOverlayPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -83,6 +120,8 @@ export default function LiveStageOverlayPage() {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
         audioRef.current.src = nextEvent.media_url;
+        audioRef.current.volume =
+          clampStageAudioVolumePercent(nextEvent.audio_volume_percent) / 100;
         audioRef.current.load();
         void audioRef.current
           .play()
@@ -216,6 +255,22 @@ export default function LiveStageOverlayPage() {
       );
   }, [activeVisualEvent]);
 
+  const activeVisualAlignment = activeVisualEvent
+    ? getStageAlignmentStyle(normalizeStageDisplayPosition(activeVisualEvent.display_position))
+    : undefined;
+  const activeVisualSizePercent = activeVisualEvent
+    ? clampStageDisplaySizePercent(activeVisualEvent.display_size_percent)
+    : 100;
+  const activeVisualFit = activeVisualEvent
+    ? normalizeStageDisplayFit(activeVisualEvent.display_fit)
+    : "contain";
+  const activeVisualAnimation = activeVisualEvent
+    ? normalizeStageEntryAnimation(activeVisualEvent.entry_animation)
+    : "fade";
+  const soundNoticeAnimation = soundNoticeEvent
+    ? normalizeStageEntryAnimation(soundNoticeEvent.entry_animation)
+    : "fade";
+
   return (
     <main className={styles.overlayRoot}>
       <audio
@@ -227,31 +282,42 @@ export default function LiveStageOverlayPage() {
 
       {activeVisualEvent ? (
         <section className={styles.visualLayer}>
-          {activeVisualEvent.media_type === "image" ? (
-            <img
-              className={styles.visualMedia}
-              src={activeVisualEvent.media_url}
-              alt={activeVisualEvent.asset_name}
-            />
-          ) : null}
+          <div className={styles.visualMediaLayer} style={activeVisualAlignment}>
+            <div
+              key={`${activeVisualEvent.id}:${activeVisualAnimation}:${activeVisualSizePercent}:${activeVisualFit}`}
+              className={styles.visualFrame}
+              data-animation={activeVisualAnimation}
+              style={{ width: `${activeVisualSizePercent}%`, height: `${activeVisualSizePercent}%` }}
+            >
+              {activeVisualEvent.media_type === "image" ? (
+                <img
+                  className={styles.visualMedia}
+                  data-fit={activeVisualFit}
+                  src={activeVisualEvent.media_url}
+                  alt={activeVisualEvent.asset_name}
+                />
+              ) : null}
 
-          {activeVisualEvent.media_type === "video" ? (
-            <video
-              key={activeVisualEvent.id}
-              ref={videoRef}
-              className={styles.visualMedia}
-              src={activeVisualEvent.media_url}
-              autoPlay
-              playsInline
-              onEnded={finishCurrentEvent}
-              onError={finishCurrentEvent}
-            />
-          ) : null}
+              {activeVisualEvent.media_type === "video" ? (
+                <video
+                  key={activeVisualEvent.id}
+                  ref={videoRef}
+                  className={styles.visualMedia}
+                  data-fit={activeVisualFit}
+                  src={activeVisualEvent.media_url}
+                  autoPlay
+                  playsInline
+                  onEnded={finishCurrentEvent}
+                  onError={finishCurrentEvent}
+                />
+              ) : null}
+            </div>
+          </div>
         </section>
       ) : null}
 
       {soundNoticeEvent ? (
-        <aside className={styles.soundNotice}>
+        <aside className={styles.soundNotice} data-animation={soundNoticeAnimation}>
           <p className={styles.noticeText}>
             @{soundNoticeEvent.triggered_by_handle} usou um comando de som:{" "}
             <strong>{soundNoticeEvent.asset_name}</strong>

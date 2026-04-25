@@ -51,7 +51,7 @@ export async function GET(request: Request) {
     const { data: eventsRaw, error: eventsError } = await admin
       .from("live_overlay_events")
       .select(
-        "id, room_owner_user_id, asset_id, asset_name, asset_command, media_url, media_type, image_duration_seconds, triggered_by_user_id, triggered_by_handle, created_at"
+        "id, room_owner_user_id, asset_id, asset_name, asset_command, media_url, media_type, image_duration_seconds, display_size_percent, display_position, display_fit, entry_animation, audio_volume_percent, triggered_by_user_id, triggered_by_handle, created_at"
       )
       .eq("room_owner_user_id", roomOwner.user_id)
       .gte("created_at", cutoffIso)
@@ -77,6 +77,11 @@ export async function GET(request: Request) {
           media_url: event.media_url,
           media_type: event.media_type,
           image_duration_seconds: event.image_duration_seconds,
+          display_size_percent: event.display_size_percent,
+          display_position: event.display_position,
+          display_fit: event.display_fit,
+          entry_animation: event.entry_animation,
+          audio_volume_percent: event.audio_volume_percent,
           triggered_by_handle: event.triggered_by_handle,
           created_at: event.created_at
         }))

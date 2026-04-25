@@ -151,6 +151,11 @@ create table if not exists public.live_overlay_assets (
   media_type text not null,
   shortcut_key text,
   image_duration_seconds integer,
+  display_size_percent integer not null default 100,
+  display_position text not null default 'center',
+  display_fit text not null default 'contain',
+  entry_animation text not null default 'fade',
+  audio_volume_percent integer not null default 100,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint live_overlay_assets_name_nonempty check (
@@ -167,6 +172,31 @@ create table if not exists public.live_overlay_assets (
   ),
   constraint live_overlay_assets_image_duration_valid check (
     image_duration_seconds is null or image_duration_seconds between 2 and 120
+  ),
+  constraint live_overlay_assets_display_size_valid check (
+    display_size_percent between 20 and 100
+  ),
+  constraint live_overlay_assets_display_position_valid check (
+    display_position in (
+      'center',
+      'top',
+      'bottom',
+      'left',
+      'right',
+      'top-left',
+      'top-right',
+      'bottom-left',
+      'bottom-right'
+    )
+  ),
+  constraint live_overlay_assets_display_fit_valid check (
+    display_fit in ('contain', 'cover')
+  ),
+  constraint live_overlay_assets_entry_animation_valid check (
+    entry_animation in ('none', 'fade', 'pop', 'slide-up', 'slide-left')
+  ),
+  constraint live_overlay_assets_audio_volume_valid check (
+    audio_volume_percent between 0 and 100
   )
 );
 
@@ -179,6 +209,11 @@ create table if not exists public.live_overlay_events (
   media_url text not null,
   media_type text not null,
   image_duration_seconds integer,
+  display_size_percent integer not null default 100,
+  display_position text not null default 'center',
+  display_fit text not null default 'contain',
+  entry_animation text not null default 'fade',
+  audio_volume_percent integer not null default 100,
   triggered_by_user_id uuid not null references public.accounts(user_id) on delete cascade,
   triggered_by_handle text not null,
   created_at timestamptz not null default now(),
@@ -196,8 +231,147 @@ create table if not exists public.live_overlay_events (
   ),
   constraint live_overlay_events_image_duration_valid check (
     image_duration_seconds is null or image_duration_seconds between 2 and 120
+  ),
+  constraint live_overlay_events_display_size_valid check (
+    display_size_percent between 20 and 100
+  ),
+  constraint live_overlay_events_display_position_valid check (
+    display_position in (
+      'center',
+      'top',
+      'bottom',
+      'left',
+      'right',
+      'top-left',
+      'top-right',
+      'bottom-left',
+      'bottom-right'
+    )
+  ),
+  constraint live_overlay_events_display_fit_valid check (
+    display_fit in ('contain', 'cover')
+  ),
+  constraint live_overlay_events_entry_animation_valid check (
+    entry_animation in ('none', 'fade', 'pop', 'slide-up', 'slide-left')
+  ),
+  constraint live_overlay_events_audio_volume_valid check (
+    audio_volume_percent between 0 and 100
   )
 );
+
+alter table if exists public.live_overlay_assets
+add column if not exists display_size_percent integer not null default 100;
+
+alter table if exists public.live_overlay_assets
+add column if not exists display_position text not null default 'center';
+
+alter table if exists public.live_overlay_assets
+add column if not exists display_fit text not null default 'contain';
+
+alter table if exists public.live_overlay_assets
+add column if not exists entry_animation text not null default 'fade';
+
+alter table if exists public.live_overlay_assets
+add column if not exists audio_volume_percent integer not null default 100;
+
+alter table if exists public.live_overlay_events
+add column if not exists display_size_percent integer not null default 100;
+
+alter table if exists public.live_overlay_events
+add column if not exists display_position text not null default 'center';
+
+alter table if exists public.live_overlay_events
+add column if not exists display_fit text not null default 'contain';
+
+alter table if exists public.live_overlay_events
+add column if not exists entry_animation text not null default 'fade';
+
+alter table if exists public.live_overlay_events
+add column if not exists audio_volume_percent integer not null default 100;
+
+alter table if exists public.live_overlay_assets
+drop constraint if exists live_overlay_assets_display_size_valid;
+alter table if exists public.live_overlay_assets
+add constraint live_overlay_assets_display_size_valid
+check (display_size_percent between 20 and 100);
+
+alter table if exists public.live_overlay_assets
+drop constraint if exists live_overlay_assets_display_position_valid;
+alter table if exists public.live_overlay_assets
+add constraint live_overlay_assets_display_position_valid
+check (
+  display_position in (
+    'center',
+    'top',
+    'bottom',
+    'left',
+    'right',
+    'top-left',
+    'top-right',
+    'bottom-left',
+    'bottom-right'
+  )
+);
+
+alter table if exists public.live_overlay_assets
+drop constraint if exists live_overlay_assets_display_fit_valid;
+alter table if exists public.live_overlay_assets
+add constraint live_overlay_assets_display_fit_valid
+check (display_fit in ('contain', 'cover'));
+
+alter table if exists public.live_overlay_assets
+drop constraint if exists live_overlay_assets_entry_animation_valid;
+alter table if exists public.live_overlay_assets
+add constraint live_overlay_assets_entry_animation_valid
+check (entry_animation in ('none', 'fade', 'pop', 'slide-up', 'slide-left'));
+
+alter table if exists public.live_overlay_assets
+drop constraint if exists live_overlay_assets_audio_volume_valid;
+alter table if exists public.live_overlay_assets
+add constraint live_overlay_assets_audio_volume_valid
+check (audio_volume_percent between 0 and 100);
+
+alter table if exists public.live_overlay_events
+drop constraint if exists live_overlay_events_display_size_valid;
+alter table if exists public.live_overlay_events
+add constraint live_overlay_events_display_size_valid
+check (display_size_percent between 20 and 100);
+
+alter table if exists public.live_overlay_events
+drop constraint if exists live_overlay_events_display_position_valid;
+alter table if exists public.live_overlay_events
+add constraint live_overlay_events_display_position_valid
+check (
+  display_position in (
+    'center',
+    'top',
+    'bottom',
+    'left',
+    'right',
+    'top-left',
+    'top-right',
+    'bottom-left',
+    'bottom-right'
+  )
+);
+
+alter table if exists public.live_overlay_events
+drop constraint if exists live_overlay_events_display_fit_valid;
+alter table if exists public.live_overlay_events
+add constraint live_overlay_events_display_fit_valid
+check (display_fit in ('contain', 'cover'));
+
+alter table if exists public.live_overlay_events
+drop constraint if exists live_overlay_events_entry_animation_valid;
+alter table if exists public.live_overlay_events
+add constraint live_overlay_events_entry_animation_valid
+check (entry_animation in ('none', 'fade', 'pop', 'slide-up', 'slide-left'));
+
+alter table if exists public.live_overlay_events
+drop constraint if exists live_overlay_events_audio_volume_valid;
+alter table if exists public.live_overlay_events
+add constraint live_overlay_events_audio_volume_valid
+check (audio_volume_percent between 0 and 100);
 
 alter table if exists public.posts drop constraint if exists posts_user_id_fkey;
 alter table if exists public.posts
@@ -561,6 +735,11 @@ with check (
       and asset.media_url = media_url
       and asset.media_type = media_type
       and coalesce(asset.image_duration_seconds, -1) = coalesce(image_duration_seconds, -1)
+      and asset.display_size_percent = display_size_percent
+      and asset.display_position = display_position
+      and asset.display_fit = display_fit
+      and asset.entry_animation = entry_animation
+      and asset.audio_volume_percent = audio_volume_percent
   )
 );
 

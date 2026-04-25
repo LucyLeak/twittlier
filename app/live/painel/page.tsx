@@ -1,18 +1,34 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { CSSProperties, ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { AccountRow, ensureAccountExists, getSeedFromUser, normalizeHandle } from "@/lib/account-utils";
 import { getSessionUserWithRetry } from "@/lib/session-utils";
 import {
   STAGE_PANEL_POLL_MS,
+  DEFAULT_STAGE_AUDIO_VOLUME_PERCENT,
+  DEFAULT_STAGE_DISPLAY_SIZE_PERCENT,
   clampStageImageDurationSeconds,
+  clampStageAudioVolumePercent,
+  clampStageDisplaySizePercent,
   extractStoragePathFromPublicUrl,
   formatStageAssetType,
+  formatStageDisplayFit,
+  formatStageDisplayPosition,
+  formatStageEntryAnimation,
   inferStageAssetTypeFromMime,
+  normalizeStageDisplayFit,
+  normalizeStageDisplayPosition,
+  normalizeStageEntryAnimation,
   normalizeShortcutKey,
   normalizeStageCommand,
+  STAGE_DISPLAY_FIT_OPTIONS,
+  STAGE_DISPLAY_POSITION_OPTIONS,
+  STAGE_ENTRY_ANIMATION_OPTIONS,
+  type StageDisplayFit,
+  type StageDisplayPosition,
+  type StageEntryAnimation,
   type StageAssetRow,
   type StageAssetType,
   type StageEventRow
@@ -42,6 +58,333 @@ function isTypingTarget(target: EventTarget | null) {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON";
 }
 
+type StageAssetStyleDraft = {
+  imageDurationSeconds: string;
+  displaySizePercent: string;
+  displayPosition: StageDisplayPosition;
+  displayFit: StageDisplayFit;
+  entryAnimation: StageEntryAnimation;
+  audioVolumePercent: string;
+};
+
+type StageAssetStyleField = keyof StageAssetStyleDraft;
+
+function createDefaultStageAssetStyleDraft(): StageAssetStyleDraft {
+  return {
+    imageDurationSeconds: "8",
+    displaySizePercent: String(DEFAULT_STAGE_DISPLAY_SIZE_PERCENT),
+    displayPosition: "center",
+    displayFit: "contain",
+    entryAnimation: "fade",
+    audioVolumePercent: String(DEFAULT_STAGE_AUDIO_VOLUME_PERCENT)
+  };
+}
+
+function createStageAssetStyleDraftFromAsset(asset: StageAssetRow): StageAssetStyleDraft {
+  return {
+    imageDurationSeconds: String(asset.image_duration_seconds ?? 8),
+    displaySizePercent: String(asset.display_size_percent),
+    displayPosition: asset.display_position,
+    displayFit: asset.display_fit,
+    entryAnimation: asset.entry_animation,
+    audioVolumePercent: String(asset.audio_volume_percent)
+  };
+}
+
+function getStageAlignmentStyle(position: StageDisplayPosition): CSSProperties {
+  switch (position) {
+    case "top":
+      return { justifyContent: "center", alignItems: "flex-start" };
+    case "bottom":
+      return { justifyContent: "center", alignItems: "flex-end" };
+    case "left":
+      return { justifyContent: "flex-start", alignItems: "center" };
+    case "right":
+      return { justifyContent: "flex-end", alignItems: "center" };
+    case "top-left":
+      return { justifyContent: "flex-start", alignItems: "flex-start" };
+    case "top-right":
+      return { justifyContent: "flex-end", alignItems: "flex-start" };
+    case "bottom-left":
+      return { justifyContent: "flex-start", alignItems: "flex-end" };
+    case "bottom-right":
+      return { justifyContent: "flex-end", alignItems: "flex-end" };
+    case "center":
+    default:
+      return { justifyContent: "center", alignItems: "center" };
+  }
+}
+
+function summarizeStageAssetVisual(asset: StageAssetRow) {
+  const animationLabel = formatStageEntryAnimation(asset.entry_animation);
+  if (asset.media_type === "sound") {
+    return `Volume ${asset.audio_volume_percent}% | ${animationLabel}`;
+  }
+
+  const fitLabel = formatStageDisplayFit(asset.display_fit);
+  const positionLabel = formatStageDisplayPosition(asset.display_position);
+  const sizeLabel = `${asset.display_size_percent}%`;
+  const durationLabel =
+    asset.media_type === "image" ? ` | ${asset.image_duration_seconds || 8}s` : "";
+  return `${sizeLabel} | ${positionLabel} | ${fitLabel} | ${animationLabel}${durationLabel}`;
+}
+
+type StageAssetConfiguratorProps = {
+  assetName: string;
+  draft: StageAssetStyleDraft;
+  helperText?: string;
+  mediaType: StageAssetType | null;
+  previewUrl: string;
+  title: string;
+  onFieldChange: (field: StageAssetStyleField, value: string) => void;
+};
+
+function StageAssetConfigurator({
+  assetName,
+  draft,
+  helperText,
+  mediaType,
+  previewUrl,
+  title,
+  onFieldChange
+}: StageAssetConfiguratorProps) {
+  const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
+  const [replayNonce, setReplayNonce] = useState(0);
+
+  const displaySizePercent = clampStageDisplaySizePercent(Number(draft.displaySizePercent));
+  const imageDurationSeconds = clampStageImageDurationSeconds(Number(draft.imageDurationSeconds));
+  const audioVolumePercent = clampStageAudioVolumePercent(Number(draft.audioVolumePercent));
+  const displayPosition = normalizeStageDisplayPosition(draft.displayPosition);
+  const displayFit = normalizeStageDisplayFit(draft.displayFit);
+  const entryAnimation = normalizeStageEntryAnimation(draft.entryAnimation);
+  const alignmentStyle = getStageAlignmentStyle(displayPosition);
+
+  useEffect(() => {
+    setReplayNonce((current) => current + 1);
+  }, [
+    assetName,
+    draft.audioVolumePercent,
+    draft.displayFit,
+    draft.displayPosition,
+    draft.displaySizePercent,
+    draft.entryAnimation,
+    draft.imageDurationSeconds,
+    mediaType,
+    previewUrl
+  ]);
+
+  useEffect(() => {
+    if (!audioPreviewRef.current) return;
+    audioPreviewRef.current.volume = audioVolumePercent / 100;
+  }, [audioVolumePercent, previewUrl]);
+
+  const previewKey = [
+    replayNonce,
+    assetName,
+    mediaType || "none",
+    previewUrl,
+    displaySizePercent,
+    displayPosition,
+    displayFit,
+    entryAnimation,
+    imageDurationSeconds,
+    audioVolumePercent
+  ].join(":");
+
+  return (
+    <div className={styles.visualEditor}>
+      <div className={styles.visualEditorHead}>
+        <div>
+          <p className={styles.previewTitle}>{title}</p>
+          {helperText ? <p className={styles.previewHint}>{helperText}</p> : null}
+        </div>
+        <button
+          className={styles.ghostButton}
+          type="button"
+          onClick={() => setReplayNonce((current) => current + 1)}
+          disabled={!previewUrl}
+        >
+          Repetir animacao
+        </button>
+      </div>
+
+      <div className={styles.visualEditorGrid}>
+        <div className={styles.visualControls}>
+          {(mediaType === "image" || mediaType === "video" || mediaType === null) ? (
+            <>
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>Tamanho na tela</span>
+                <div className={styles.rangeRow}>
+                  <input
+                    className={styles.rangeInput}
+                    type="range"
+                    min={20}
+                    max={100}
+                    value={displaySizePercent}
+                    onChange={(event) => onFieldChange("displaySizePercent", event.target.value)}
+                  />
+                  <strong className={styles.rangeValue}>{displaySizePercent}%</strong>
+                </div>
+                <p className={styles.fieldHint}>Controla quanto da tela o asset ocupa.</p>
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>Posicao</span>
+                <select
+                  className={styles.selectInput}
+                  value={displayPosition}
+                  onChange={(event) => onFieldChange("displayPosition", event.target.value)}
+                >
+                  {STAGE_DISPLAY_POSITION_OPTIONS.map((position) => (
+                    <option key={position} value={position}>
+                      {formatStageDisplayPosition(position)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>Encaixe</span>
+                <select
+                  className={styles.selectInput}
+                  value={displayFit}
+                  onChange={(event) => onFieldChange("displayFit", event.target.value)}
+                >
+                  {STAGE_DISPLAY_FIT_OPTIONS.map((fit) => (
+                    <option key={fit} value={fit}>
+                      {formatStageDisplayFit(fit)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          ) : null}
+
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>Animacao de entrada</span>
+            <select
+              className={styles.selectInput}
+              value={entryAnimation}
+              onChange={(event) => onFieldChange("entryAnimation", event.target.value)}
+            >
+              {STAGE_ENTRY_ANIMATION_OPTIONS.map((animation) => (
+                <option key={animation} value={animation}>
+                  {formatStageEntryAnimation(animation)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {(mediaType === "image" || mediaType === null) ? (
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>Tempo da imagem</span>
+              <input
+                className={styles.textInput}
+                type="number"
+                min={2}
+                max={120}
+                value={draft.imageDurationSeconds}
+                onChange={(event) => onFieldChange("imageDurationSeconds", event.target.value)}
+              />
+              <p className={styles.fieldHint}>Usado quando o asset for imagem.</p>
+            </label>
+          ) : null}
+
+          {(mediaType === "sound" || mediaType === null) ? (
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>Volume do audio</span>
+              <div className={styles.rangeRow}>
+                <input
+                  className={styles.rangeInput}
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={audioVolumePercent}
+                  onChange={(event) => onFieldChange("audioVolumePercent", event.target.value)}
+                />
+                <strong className={styles.rangeValue}>{audioVolumePercent}%</strong>
+              </div>
+              <p className={styles.fieldHint}>Define o volume usado no overlay da live.</p>
+            </label>
+          ) : null}
+        </div>
+
+        <div className={styles.previewPanel}>
+          <div className={styles.previewSurface}>
+            <div className={styles.previewSurfaceHead}>
+              <span className={styles.previewSurfaceBadge}>Preview da live 16:9</span>
+              <span className={styles.previewSurfaceBadge}>
+                {mediaType ? formatStageAssetType(mediaType) : "Sem arquivo"}
+              </span>
+            </div>
+
+            <div className={styles.previewStage}>
+              {previewUrl ? (
+                mediaType === "sound" ? (
+                  <div
+                    key={previewKey}
+                    className={styles.previewNotice}
+                    data-animation={entryAnimation}
+                  >
+                    @{assetName || "mod"} usou um comando de som:{" "}
+                    <strong>{assetName || "Novo som"}</strong>
+                  </div>
+                ) : (
+                  <div className={styles.previewMediaLayer} style={alignmentStyle}>
+                    <div
+                      key={previewKey}
+                      className={styles.previewMediaFrame}
+                      data-animation={entryAnimation}
+                      style={{ width: `${displaySizePercent}%`, height: `${displaySizePercent}%` }}
+                    >
+                      {mediaType === "image" ? (
+                        <img
+                          className={styles.previewStageMedia}
+                          data-fit={displayFit}
+                          src={previewUrl}
+                          alt={assetName || "Preview"}
+                        />
+                      ) : null}
+                      {mediaType === "video" ? (
+                        <video
+                          className={styles.previewStageMedia}
+                          data-fit={displayFit}
+                          src={previewUrl}
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                )
+              ) : (
+                <div className={styles.previewEmpty}>
+                  Escolha um arquivo para liberar o preview visual do asset.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {mediaType === "sound" && previewUrl ? (
+            <div className={styles.audioPreviewBox}>
+              <p className={styles.fieldLabel}>Player do preview</p>
+              <audio
+                ref={audioPreviewRef}
+                className={styles.compactPreview}
+                src={previewUrl}
+                controls
+                preload="metadata"
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function LiveModPanelPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -57,7 +400,9 @@ export default function LiveModPanelPage() {
   const [assetName, setAssetName] = useState("");
   const [assetCommand, setAssetCommand] = useState("");
   const [shortcutKey, setShortcutKey] = useState("");
-  const [imageDurationSeconds, setImageDurationSeconds] = useState("8");
+  const [createStyleDraft, setCreateStyleDraft] = useState<StageAssetStyleDraft>(
+    createDefaultStageAssetStyleDraft()
+  );
   const [file, setFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState("");
   const [filePreviewType, setFilePreviewType] = useState<StageAssetType | null>(null);
@@ -69,10 +414,16 @@ export default function LiveModPanelPage() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [isForbidden, setIsForbidden] = useState(false);
+  const [editingAssetId, setEditingAssetId] = useState("");
+  const [editStyleDraft, setEditStyleDraft] = useState<StageAssetStyleDraft | null>(null);
 
   const soundAssets = assets.filter((asset) => asset.media_type === "sound");
   const imageAssets = assets.filter((asset) => asset.media_type === "image");
   const videoAssets = assets.filter((asset) => asset.media_type === "video");
+  const editingAsset =
+    editingAssetId && editStyleDraft
+      ? assets.find((asset) => asset.id === editingAssetId) || null
+      : null;
 
   useEffect(() => {
     document.documentElement.classList.add("tw-mod-panel-html");
@@ -97,6 +448,24 @@ export default function LiveModPanelPage() {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
+  useEffect(() => {
+    if (!editingAssetId) return;
+    if (assets.some((asset) => asset.id === editingAssetId)) return;
+    setEditingAssetId("");
+    setEditStyleDraft(null);
+  }, [assets, editingAssetId]);
+
+  function updateCreateStyleDraft(field: StageAssetStyleField, value: string) {
+    setCreateStyleDraft((current) => ({
+      ...current,
+      [field]: value
+    }));
+  }
+
+  function updateEditStyleDraft(field: StageAssetStyleField, value: string) {
+    setEditStyleDraft((current) => (current ? { ...current, [field]: value } : current));
+  }
+
   async function fetchRoomOwnerByHandle(handle: string) {
     const supabase = getSupabaseBrowserClient();
     const normalized = normalizeHandle(handle);
@@ -117,7 +486,7 @@ export default function LiveModPanelPage() {
     const { data, error: fetchError } = await supabase
       .from("live_overlay_assets")
       .select(
-        "id, room_owner_user_id, created_by_user_id, name, command, media_url, media_type, shortcut_key, image_duration_seconds, created_at, updated_at"
+        "id, room_owner_user_id, created_by_user_id, name, command, media_url, media_type, shortcut_key, image_duration_seconds, display_size_percent, display_position, display_fit, entry_animation, audio_volume_percent, created_at, updated_at"
       )
       .eq("room_owner_user_id", roomOwnerUserId)
       .order("created_at", { ascending: false });
@@ -131,7 +500,7 @@ export default function LiveModPanelPage() {
     const { data, error: fetchError } = await supabase
       .from("live_overlay_events")
       .select(
-        "id, room_owner_user_id, asset_id, asset_name, asset_command, media_url, media_type, image_duration_seconds, triggered_by_user_id, triggered_by_handle, created_at"
+        "id, room_owner_user_id, asset_id, asset_name, asset_command, media_url, media_type, image_duration_seconds, display_size_percent, display_position, display_fit, entry_animation, audio_volume_percent, triggered_by_user_id, triggered_by_handle, created_at"
       )
       .eq("room_owner_user_id", roomOwnerUserId)
       .order("created_at", { ascending: false })
@@ -338,6 +707,27 @@ export default function LiveModPanelPage() {
     }
   }
 
+  function resolveStyleDraftForAsset(
+    draft: StageAssetStyleDraft,
+    mediaType: StageAssetType
+  ) {
+    return {
+      image_duration_seconds:
+        mediaType === "image"
+          ? clampStageImageDurationSeconds(Number(draft.imageDurationSeconds))
+          : null,
+      display_size_percent: clampStageDisplaySizePercent(Number(draft.displaySizePercent)),
+      display_position: normalizeStageDisplayPosition(draft.displayPosition),
+      display_fit:
+        mediaType === "sound" ? "contain" : normalizeStageDisplayFit(draft.displayFit),
+      entry_animation: normalizeStageEntryAnimation(draft.entryAnimation),
+      audio_volume_percent:
+        mediaType === "sound"
+          ? clampStageAudioVolumePercent(Number(draft.audioVolumePercent))
+          : DEFAULT_STAGE_AUDIO_VOLUME_PERCENT
+    };
+  }
+
   async function handleAddAsset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -366,10 +756,7 @@ export default function LiveModPanelPage() {
     try {
       const supabase = getSupabaseBrowserClient();
       const { mediaUrl, mediaType } = await uploadStageMedia(viewerAccount.user_id);
-      const durationForImage =
-        mediaType === "image"
-          ? clampStageImageDurationSeconds(Number(imageDurationSeconds))
-          : null;
+      const styleValues = resolveStyleDraftForAsset(createStyleDraft, mediaType);
 
       const { error: insertError } = await supabase.from("live_overlay_assets").insert({
         room_owner_user_id: roomOwnerAccount.user_id,
@@ -379,7 +766,12 @@ export default function LiveModPanelPage() {
         media_url: mediaUrl,
         media_type: mediaType,
         shortcut_key: normalizedShortcut || null,
-        image_duration_seconds: durationForImage
+        image_duration_seconds: styleValues.image_duration_seconds,
+        display_size_percent: styleValues.display_size_percent,
+        display_position: styleValues.display_position,
+        display_fit: styleValues.display_fit,
+        entry_animation: styleValues.entry_animation,
+        audio_volume_percent: styleValues.audio_volume_percent
       });
 
       if (insertError) {
@@ -392,7 +784,7 @@ export default function LiveModPanelPage() {
       setAssetName("");
       setAssetCommand("");
       setShortcutKey("");
-      setImageDurationSeconds("8");
+      setCreateStyleDraft(createDefaultStageAssetStyleDraft());
       clearSelectedFile();
       setStatus(`Asset ${name} adicionado no painel da live.`);
       await loadPanelData(roomOwnerAccount.user_id);
@@ -422,6 +814,11 @@ export default function LiveModPanelPage() {
         media_url: asset.media_url,
         media_type: asset.media_type,
         image_duration_seconds: asset.image_duration_seconds,
+        display_size_percent: asset.display_size_percent,
+        display_position: asset.display_position,
+        display_fit: asset.display_fit,
+        entry_animation: asset.entry_animation,
+        audio_volume_percent: asset.audio_volume_percent,
         triggered_by_user_id: viewerAccount.user_id,
         triggered_by_handle: viewerAccount.handle
       });
@@ -458,6 +855,61 @@ export default function LiveModPanelPage() {
 
     await triggerAsset(asset);
     setQuickCommand("");
+  }
+
+  function startEditingAsset(asset: StageAssetRow) {
+    setEditingAssetId(asset.id);
+    setEditStyleDraft(createStageAssetStyleDraftFromAsset(asset));
+    setStatus(`Editor aberto para ${asset.name}.`);
+    setError("");
+  }
+
+  function cancelEditingAsset() {
+    setEditingAssetId("");
+    setEditStyleDraft(null);
+    setStatus("Edicao visual cancelada.");
+  }
+
+  async function handleSaveAssetEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setStatus("");
+
+    if (!roomOwnerAccount || !editingAsset || !editStyleDraft) {
+      setError("Selecione um asset valido para editar.");
+      return;
+    }
+
+    setBusyAssetId(editingAsset.id);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const styleValues = resolveStyleDraftForAsset(editStyleDraft, editingAsset.media_type);
+      const { error: updateError } = await supabase
+        .from("live_overlay_assets")
+        .update({
+          image_duration_seconds: styleValues.image_duration_seconds,
+          display_size_percent: styleValues.display_size_percent,
+          display_position: styleValues.display_position,
+          display_fit: styleValues.display_fit,
+          entry_animation: styleValues.entry_animation,
+          audio_volume_percent: styleValues.audio_volume_percent
+        })
+        .eq("id", editingAsset.id)
+        .eq("room_owner_user_id", roomOwnerAccount.user_id);
+
+      if (updateError) throw updateError;
+
+      setStatus(`Visual de ${editingAsset.name} atualizado.`);
+      setEditingAssetId("");
+      setEditStyleDraft(null);
+      await loadPanelData(roomOwnerAccount.user_id);
+    } catch (caughtError) {
+      const messageText =
+        caughtError instanceof Error ? caughtError.message : "Falha ao salvar a edicao.";
+      setError(messageText);
+    } finally {
+      setBusyAssetId("");
+    }
   }
 
   async function handleDeleteAsset(asset: StageAssetRow) {
@@ -671,18 +1123,6 @@ export default function LiveModPanelPage() {
                   placeholder="Ex: q, 1, f1"
                 />
               </label>
-
-              <label className={styles.field}>
-                <span className={styles.fieldLabel}>Tempo da imagem</span>
-                <input
-                  className={styles.textInput}
-                  type="number"
-                  min={2}
-                  max={120}
-                  value={imageDurationSeconds}
-                  onChange={(event) => setImageDurationSeconds(event.target.value)}
-                />
-              </label>
             </div>
 
             <label className={styles.uploadField}>
@@ -701,22 +1141,15 @@ export default function LiveModPanelPage() {
               </span>
             </label>
 
-            {filePreviewUrl ? (
-              <div className={styles.previewBox}>
-                <p className={styles.previewTitle}>
-                  Preview {filePreviewType ? `| ${formatStageAssetType(filePreviewType)}` : ""}
-                </p>
-                {filePreviewType === "sound" ? (
-                  <audio className={styles.previewMedia} src={filePreviewUrl} controls />
-                ) : null}
-                {filePreviewType === "image" ? (
-                  <img className={styles.previewMedia} src={filePreviewUrl} alt="Preview do asset" />
-                ) : null}
-                {filePreviewType === "video" ? (
-                  <video className={styles.previewMedia} src={filePreviewUrl} controls />
-                ) : null}
-              </div>
-            ) : null}
+            <StageAssetConfigurator
+              title="Preview e estilo do novo asset"
+              helperText="Ajuste como o asset vai entrar na live antes de salvar."
+              mediaType={filePreviewType}
+              previewUrl={filePreviewUrl}
+              assetName={assetName || "Novo asset"}
+              draft={createStyleDraft}
+              onFieldChange={updateCreateStyleDraft}
+            />
 
             <div className={styles.formFooter}>
               <button className={styles.ghostButton} type="button" onClick={clearSelectedFile}>
@@ -763,6 +1196,45 @@ export default function LiveModPanelPage() {
         </article>
       </section>
 
+      {editingAsset && editStyleDraft ? (
+        <section className={styles.card}>
+          <div className={styles.cardHead}>
+            <div>
+              <p className={styles.eyebrow}>Editor visual</p>
+              <h2 className={styles.cardTitle}>Ajustar {editingAsset.name}</h2>
+            </div>
+            <span className={styles.sideHint}>
+              {formatStageAssetType(editingAsset.media_type)} | {editingAsset.command}
+            </span>
+          </div>
+
+          <form className={styles.assetForm} onSubmit={handleSaveAssetEdit}>
+            <StageAssetConfigurator
+              title="Preview do asset salvo"
+              helperText="Essa edicao altera como o asset sera exibido na live nas proximas vezes."
+              mediaType={editingAsset.media_type}
+              previewUrl={editingAsset.media_url}
+              assetName={editingAsset.name}
+              draft={editStyleDraft}
+              onFieldChange={updateEditStyleDraft}
+            />
+
+            <div className={styles.formFooter}>
+              <button className={styles.ghostButton} type="button" onClick={cancelEditingAsset}>
+                Cancelar
+              </button>
+              <button
+                className={styles.primaryButton}
+                type="submit"
+                disabled={busyAssetId === editingAsset.id}
+              >
+                {busyAssetId === editingAsset.id ? "Salvando..." : "Salvar visual"}
+              </button>
+            </div>
+          </form>
+        </section>
+      ) : null}
+
       <section className={styles.librarySection}>
         <div className={styles.sectionHead}>
           <div>
@@ -790,6 +1262,7 @@ export default function LiveModPanelPage() {
                         <p className={styles.assetMeta}>
                           {asset.command} | {formatShortcutLabel(asset.shortcut_key)}
                         </p>
+                        <p className={styles.assetMeta}>{summarizeStageAssetVisual(asset)}</p>
                       </div>
                       <span className={styles.assetBadge}>Som</span>
                     </div>
@@ -802,6 +1275,14 @@ export default function LiveModPanelPage() {
                         onClick={() => void triggerAsset(asset)}
                       >
                         {busyAssetId === asset.id ? "Enviando..." : "Tocar na live"}
+                      </button>
+                      <button
+                        className={styles.secondaryButton}
+                        type="button"
+                        disabled={busyAssetId === asset.id}
+                        onClick={() => startEditingAsset(asset)}
+                      >
+                        Editar visual
                       </button>
                       <button
                         className={styles.ghostButton}
@@ -835,9 +1316,7 @@ export default function LiveModPanelPage() {
                         <p className={styles.assetMeta}>
                           {asset.command} | {formatShortcutLabel(asset.shortcut_key)}
                         </p>
-                        <p className={styles.assetMeta}>
-                          Fica no ar por {asset.image_duration_seconds || 8}s
-                        </p>
+                        <p className={styles.assetMeta}>{summarizeStageAssetVisual(asset)}</p>
                       </div>
                       <span className={styles.assetBadge}>Imagem</span>
                     </div>
@@ -850,6 +1329,14 @@ export default function LiveModPanelPage() {
                         onClick={() => void triggerAsset(asset)}
                       >
                         {busyAssetId === asset.id ? "Enviando..." : "Mostrar na live"}
+                      </button>
+                      <button
+                        className={styles.secondaryButton}
+                        type="button"
+                        disabled={busyAssetId === asset.id}
+                        onClick={() => startEditingAsset(asset)}
+                      >
+                        Editar visual
                       </button>
                       <button
                         className={styles.ghostButton}
@@ -883,6 +1370,7 @@ export default function LiveModPanelPage() {
                         <p className={styles.assetMeta}>
                           {asset.command} | {formatShortcutLabel(asset.shortcut_key)}
                         </p>
+                        <p className={styles.assetMeta}>{summarizeStageAssetVisual(asset)}</p>
                       </div>
                       <span className={styles.assetBadge}>Video</span>
                     </div>
@@ -895,6 +1383,14 @@ export default function LiveModPanelPage() {
                         onClick={() => void triggerAsset(asset)}
                       >
                         {busyAssetId === asset.id ? "Enviando..." : "Soltar no overlay"}
+                      </button>
+                      <button
+                        className={styles.secondaryButton}
+                        type="button"
+                        disabled={busyAssetId === asset.id}
+                        onClick={() => startEditingAsset(asset)}
+                      >
+                        Editar visual
                       </button>
                       <button
                         className={styles.ghostButton}
