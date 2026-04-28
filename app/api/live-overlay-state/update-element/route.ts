@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getSessionUserWithRetry } from "@/lib/session-utils";
+import { getRouteSupabaseClient } from "@/lib/supabase-server";
 
 function getAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -19,11 +19,16 @@ function getAdminClient() {
 
 export async function PATCH(request: Request) {
   try {
+    const sessionClient = await getRouteSupabaseClient();
     const admin = getAdminClient();
-    const { user: sessionUser, error: sessionError } = await getSessionUserWithRetry(admin);
+    const {
+      data: { user: sessionUser },
+      error: sessionError
+    } = await sessionClient.auth.getUser();
+
     if (!sessionUser) {
       return NextResponse.json(
-        { error: sessionError?.message || "Nao autenticado." },
+        { error: sessionError ? "Sessao expirada. Faca login novamente." : "Nao autenticado." },
         { status: 401 }
       );
     }

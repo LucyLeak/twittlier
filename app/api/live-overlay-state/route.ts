@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getSessionUserWithRetry } from "@/lib/session-utils";
 import { normalizeHandle } from "@/lib/account-utils";
+import { getRouteSupabaseClient } from "@/lib/supabase-server";
 
 export type OverlayActiveElement = {
   id: string;
@@ -160,11 +160,16 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const sessionClient = await getRouteSupabaseClient();
     const admin = getAdminClient();
-    const { user: sessionUser, error: sessionError } = await getSessionUserWithRetry(admin);
+    const {
+      data: { user: sessionUser },
+      error: sessionError
+    } = await sessionClient.auth.getUser();
+
     if (!sessionUser) {
       return NextResponse.json(
-        { error: sessionError?.message || "Nao autenticado." },
+        { error: sessionError ? "Sessao expirada. Faca login novamente." : "Nao autenticado." },
         { status: 401 }
       );
     }

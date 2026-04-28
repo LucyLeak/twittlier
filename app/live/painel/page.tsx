@@ -1235,6 +1235,63 @@ export default function LiveModPanelPage() {
         {error ? <p className={styles.errorText}>{error}</p> : null}
       </section>
 
+      <section className={styles.studioWorkspace}>
+        <aside className={styles.studioSidebar}>
+          <p className={styles.eyebrow}>Biblioteca</p>
+          <div className={styles.studioStatCard}>
+            <span className={styles.fieldLabel}>Sons</span>
+            <strong>{soundAssets.length}</strong>
+          </div>
+          <div className={styles.studioStatCard}>
+            <span className={styles.fieldLabel}>Imagens</span>
+            <strong>{imageAssets.length}</strong>
+          </div>
+          <div className={styles.studioStatCard}>
+            <span className={styles.fieldLabel}>Videos</span>
+            <strong>{videoAssets.length}</strong>
+          </div>
+        </aside>
+
+        <div className={styles.studioPreviewCenter}>
+          <div className={styles.studioPreviewHead}>
+            <p className={styles.eyebrow}>Preview da live</p>
+            <span className={styles.metaChip}>@{roomOwnerAccount?.handle || roomHandle}</span>
+          </div>
+          <div className={styles.studioPreviewFrame}>
+            {obsUrl ? (
+              <iframe
+                className={styles.studioIframe}
+                src={obsUrl}
+                title="Preview ao vivo do overlay"
+                loading="lazy"
+              />
+            ) : (
+              <div className={styles.emptyState}>Conecte uma live para abrir o preview central.</div>
+            )}
+          </div>
+        </div>
+
+        <aside className={styles.studioSidebar}>
+          <p className={styles.eyebrow}>Cena ativa</p>
+          <div className={styles.studioStatCard}>
+            <span className={styles.fieldLabel}>Elementos ativos</span>
+            <strong>{activeElements.length}</strong>
+          </div>
+          <div className={styles.studioStatCard}>
+            <span className={styles.fieldLabel}>Versao</span>
+            <strong>{overlayVersion}</strong>
+          </div>
+          <button
+            className={styles.ghostButton}
+            type="button"
+            disabled={activeElements.length === 0 || busyActiveElementId === "clear-all"}
+            onClick={() => void handleClearOverlayNow()}
+          >
+            {busyActiveElementId === "clear-all" ? "Limpando..." : "Limpar overlay"}
+          </button>
+        </aside>
+      </section>
+
       <section className={styles.grid}>
         <article className={styles.card}>
           <div className={styles.cardHead}>
