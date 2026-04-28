@@ -22,6 +22,7 @@ export default function LiveStageOverlayPage() {
 
   const [elements, setElements] = useState<OverlayActiveElement[]>([]);
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const [streamError, setStreamError] = useState("");
 
   function stopAudio() {
     if (audioRef.current) {
@@ -63,6 +64,7 @@ export default function LiveStageOverlayPage() {
 
   async function loadOverlayState(targetStream: string) {
     try {
+      setStreamError("");
       const payload: OverlayStateResponse = await getOverlayStateByStream(targetStream);
 
       // Only update if version changed
@@ -100,10 +102,10 @@ export default function LiveStageOverlayPage() {
         }
       }
     } catch (caughtError) {
-      console.warn(
-        "Falha ao atualizar overlay do palco:",
-        caughtError instanceof Error ? caughtError.message : caughtError
-      );
+      const message =
+        caughtError instanceof Error ? caughtError.message : "Falha ao atualizar overlay.";
+      setStreamError(message);
+      console.warn("Falha ao atualizar overlay do palco:", message);
     }
   }
 
@@ -112,9 +114,13 @@ export default function LiveStageOverlayPage() {
     document.body.classList.add("tw-stage-overlay-body");
 
     const params = new URLSearchParams(window.location.search);
-    const requestedStream = params.get("stream") || "";
+    const requestedStream =
+      params.get("stream") || window.localStorage.getItem("tw:last-stream-handle") || "";
 
     if (!requestedStream) {
+      setStreamError(
+        "Parametro stream ausente. Copie novamente a URL completa do painel (com ?stream=handle)."
+      );
       console.warn("Overlay sem parametro stream.");
       return () => {
         document.documentElement.classList.remove("tw-stage-overlay-html");
@@ -173,6 +179,11 @@ export default function LiveStageOverlayPage() {
 
   return (
     <main className={styles.overlayRoot}>
+      {streamError ? (
+        <div className={styles.overlayError}>
+          {streamError}
+        </div>
+      ) : null}
       <audio
         ref={audioRef}
         className={styles.hiddenAudio}

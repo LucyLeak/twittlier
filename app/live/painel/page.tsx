@@ -630,6 +630,9 @@ export default function LiveModPanelPage() {
     }
 
     setRoomOwnerAccount(roomOwner);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("tw:last-stream-handle", roomOwner.handle);
+    }
     if (updateUrl) {
       router.replace(`/live/painel?stream=${encodeURIComponent(normalized)}`, { scroll: false });
     }
@@ -670,7 +673,10 @@ export default function LiveModPanelPage() {
       }
 
       const params = new URLSearchParams(window.location.search);
-      const requestedStream = normalizeHandle(params.get("stream") || ensuredViewer.handle);
+      const rememberedStream = normalizeHandle(window.localStorage.getItem("tw:last-stream-handle") || "");
+      const requestedStream = normalizeHandle(
+        params.get("stream") || rememberedStream || ensuredViewer.handle
+      );
       await switchRoom(requestedStream, ensuredViewer, false);
     }
 
@@ -1102,7 +1108,7 @@ export default function LiveModPanelPage() {
 
   async function copyObsUrl() {
     if (!origin || !roomOwnerAccount) return;
-    const obsUrl = `${origin}/live/painel/overlay?stream=${roomOwnerAccount.handle}`;
+    const obsUrl = `${origin}/live/painel/overlay?stream=${encodeURIComponent(roomOwnerAccount.handle)}`;
     try {
       await navigator.clipboard.writeText(obsUrl);
       setStatus("URL do OBS copiada.");
@@ -1141,7 +1147,7 @@ export default function LiveModPanelPage() {
 
   const obsUrl =
     origin && roomOwnerAccount
-      ? `${origin}/live/painel/overlay?stream=${roomOwnerAccount.handle}`
+      ? `${origin}/live/painel/overlay?stream=${encodeURIComponent(roomOwnerAccount.handle)}`
       : "";
 
   const activityListContent =
@@ -1238,6 +1244,9 @@ export default function LiveModPanelPage() {
             <button className={styles.secondaryButton} type="button" onClick={copyObsUrl}>
               Copiar URL base
             </button>
+            <a className={styles.secondaryButton} href={obsUrl || "#"} target="_blank" rel="noreferrer">
+              Abrir overlay
+            </a>
             <button className={styles.ghostButton} type="button" onClick={() => router.push("/live")}>
               Voltar para Live
             </button>
