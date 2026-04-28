@@ -1144,6 +1144,26 @@ export default function LiveModPanelPage() {
       ? `${origin}/live/painel/overlay?stream=${roomOwnerAccount.handle}`
       : "";
 
+  const activityListContent =
+    events.length === 0 ? (
+      <div className={styles.emptyState}>
+        Nada disparado ainda. Quando um mod usar um comando, ele aparece aqui.
+      </div>
+    ) : (
+      events.map((eventItem) => (
+        <article className={styles.activityItem} key={eventItem.id}>
+          <div className={styles.activityTop}>
+            <strong>{eventItem.asset_name}</strong>
+            <span className={styles.assetBadge}>{formatStageAssetType(eventItem.media_type)}</span>
+          </div>
+          <p className={styles.activityMeta}>
+            @{eventItem.triggered_by_handle} usou {eventItem.asset_command}
+          </p>
+          <p className={styles.activityMeta}>{new Date(eventItem.created_at).toLocaleString("pt-BR")}</p>
+        </article>
+      ))
+    );
+
   return (
     <main className={styles.shell}>
       <section className={styles.heroCard}>
@@ -1381,28 +1401,7 @@ export default function LiveModPanelPage() {
             <span className={styles.sideHint}>Log dos moderadores</span>
           </div>
 
-          <div className={styles.activityList}>
-            {events.length === 0 ? (
-              <div className={styles.emptyState}>
-                Nada disparado ainda. Quando um mod usar um comando, ele aparece aqui.
-              </div>
-            ) : (
-              events.map((eventItem) => (
-                <article className={styles.activityItem} key={eventItem.id}>
-                  <div className={styles.activityTop}>
-                    <strong>{eventItem.asset_name}</strong>
-                    <span className={styles.assetBadge}>{formatStageAssetType(eventItem.media_type)}</span>
-                  </div>
-                  <p className={styles.activityMeta}>
-                    @{eventItem.triggered_by_handle} usou {eventItem.asset_command}
-                  </p>
-                  <p className={styles.activityMeta}>
-                    {new Date(eventItem.created_at).toLocaleString("pt-BR")}
-                  </p>
-                </article>
-              ))
-            )}
-          </div>
+          <div className={styles.activityList}>{activityListContent}</div>
         </article>
       </section>
 
