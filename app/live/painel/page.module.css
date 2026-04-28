@@ -133,11 +133,6 @@
 
 .libraryColumns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .libraryColumn { min-width: 0; }
-.libraryWorkspace { display: grid; grid-template-columns: 240px 1fr; gap: 12px; }
-.folderSidebar { border: 1px solid #2a3e68; border-radius: 12px; background: #070e1d; padding: 10px; display: grid; gap: 8px; align-content: start; }
-.folderButton, .folderButtonActive { border: 1px solid #2e4778; background: #0d1528; color: #b7cbf2; border-radius: 8px; padding: 8px 10px; text-align: left; cursor: pointer; }
-.folderButtonActive { border-color: #3e7eff; background: #162846; color: #e1ecff; }
-.folderCreateRow { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 8px; }
 .assetList, .activityList, .liveElementList { display: grid; gap: 10px; max-height: 620px; overflow: auto; padding-right: 4px; }
 .assetCard, .activityItem, .liveElementCard { padding: 12px; }
 .assetName { margin: 0 0 4px; }
@@ -153,6 +148,5 @@
   .studioWorkspace { grid-template-columns: 1fr; }
   .grid { grid-template-columns: 1fr; }
   .libraryColumns { grid-template-columns: 1fr; }
-  .libraryWorkspace { grid-template-columns: 1fr; }
   .formColumns, .visualEditorGrid, .liveQuickGrid { grid-template-columns: 1fr; }
 }
