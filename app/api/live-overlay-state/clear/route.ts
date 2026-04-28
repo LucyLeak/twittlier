@@ -38,8 +38,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const admin = getAdminClient();
-
     // Delete all elements for this room
     const { error: deleteError } = await admin
       .from("live_overlay_active_elements")

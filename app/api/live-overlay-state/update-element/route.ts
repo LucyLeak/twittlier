@@ -46,8 +46,6 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const admin = getAdminClient();
-
     // Build update object with only provided fields
     const updateData: Record<string, unknown> = {};
     if (Number.isFinite(displayXPercent)) updateData.display_x_percent = displayXPercent;

@@ -194,8 +194,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const admin = getAdminClient();
-
     // Get room owner info
     const { data: roomOwner, error: roomError } = await admin
       .from("accounts")

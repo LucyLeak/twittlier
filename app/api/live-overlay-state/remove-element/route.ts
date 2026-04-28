@@ -38,8 +38,6 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const admin = getAdminClient();
-
     // Delete element
     const { error: deleteError } = await admin
       .from("live_overlay_active_elements")
