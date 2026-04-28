@@ -51,7 +51,6 @@ export default function LiveStageOverlayPage() {
           console.warn("Falha ao tocar audio no overlay do OBS:", caughtError)
         );
     }
-
   }
 
   function scheduleElementRemoval(elementId: string, durationMs: number) {
@@ -64,7 +63,7 @@ export default function LiveStageOverlayPage() {
 
   async function loadOverlayState(targetStream: string) {
     try {
-      const payload = (await getOverlayStateByStream(targetStream)) as OverlayStateResponse;
+      const payload: OverlayStateResponse = await getOverlayStateByStream(targetStream);
 
       // Only update if version changed
       if (payload.version === lastVersionRef.current) {
