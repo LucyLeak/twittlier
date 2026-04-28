@@ -1238,28 +1238,83 @@ export default function LiveModPanelPage() {
             <span className={styles.metaChip}>{assets.length} assets</span>
           </div>
         </div>
+
+        <div className={styles.noticeBar}>
+          <span>Atalhos funcionam quando o painel esta em foco.</span>
+          <span>Agora o palco e stateful: da para remover/editar elemento ativo em tempo real.</span>
+          <span>Upload sem limite artificial de tamanho no frontend.</span>
+          {isRefreshing ? <span>Atualizando biblioteca...</span> : null}
+        </div>
+
         {status ? <p className={styles.statusText}>{status}</p> : null}
         {error ? <p className={styles.errorText}>{error}</p> : null}
       </section>
 
-      <section className={styles.workspaceLayout}>
-        <aside className={styles.folderSidebar}>
-          <p className={styles.eyebrow}>Pastas da sessao</p>
-          <div className={styles.folderList}>
-            {folderItems.map((folder) => (
-              <button
-                key={folder.key}
-                type="button"
-                className={styles.folderButton}
-                data-active={activeFolder === folder.key ? "true" : "false"}
-                onClick={() => setActiveFolder(folder.key)}
-              >
-                <span>{folder.label}</span>
-                {typeof folder.count === "number" ? (
-                  <span className={styles.counterChip}>{folder.count}</span>
-                ) : null}
-              </button>
-            ))}
+      <section className={styles.studioWorkspace}>
+        <aside className={styles.studioSidebar}>
+          <p className={styles.eyebrow}>Biblioteca</p>
+          <div className={styles.studioStatCard}>
+            <span className={styles.fieldLabel}>Sons</span>
+            <strong>{soundAssets.length}</strong>
+          </div>
+          <div className={styles.studioStatCard}>
+            <span className={styles.fieldLabel}>Imagens</span>
+            <strong>{imageAssets.length}</strong>
+          </div>
+          <div className={styles.studioStatCard}>
+            <span className={styles.fieldLabel}>Videos</span>
+            <strong>{videoAssets.length}</strong>
+          </div>
+        </aside>
+
+        <div className={styles.studioPreviewCenter}>
+          <div className={styles.studioPreviewHead}>
+            <p className={styles.eyebrow}>Preview da live</p>
+            <span className={styles.metaChip}>@{roomOwnerAccount?.handle || roomHandle}</span>
+          </div>
+          <div className={styles.studioPreviewFrame}>
+            {obsUrl ? (
+              <iframe
+                className={styles.studioIframe}
+                src={obsUrl}
+                title="Preview ao vivo do overlay"
+                loading="lazy"
+              />
+            ) : (
+              <div className={styles.emptyState}>Conecte uma live para abrir o preview central.</div>
+            )}
+          </div>
+        </div>
+
+        <aside className={styles.studioSidebar}>
+          <p className={styles.eyebrow}>Cena ativa</p>
+          <div className={styles.studioStatCard}>
+            <span className={styles.fieldLabel}>Elementos ativos</span>
+            <strong>{activeElements.length}</strong>
+          </div>
+          <div className={styles.studioStatCard}>
+            <span className={styles.fieldLabel}>Versao</span>
+            <strong>{overlayVersion}</strong>
+          </div>
+          <button
+            className={styles.ghostButton}
+            type="button"
+            disabled={activeElements.length === 0 || busyActiveElementId === "clear-all"}
+            onClick={() => void handleClearOverlayNow()}
+          >
+            {busyActiveElementId === "clear-all" ? "Limpando..." : "Limpar overlay"}
+          </button>
+        </aside>
+      </section>
+
+      <section className={styles.grid}>
+        <article className={styles.card}>
+          <div className={styles.cardHead}>
+            <div>
+              <p className={styles.eyebrow}>Novo asset</p>
+              <h2 className={styles.cardTitle}>Adicionar na biblioteca</h2>
+            </div>
+            <span className={styles.sideHint}>Audio, imagem e video</span>
           </div>
         </aside>
 
@@ -1318,11 +1373,171 @@ export default function LiveModPanelPage() {
             )}
           </div>
 
-          <div className={styles.obsBox}>
-            <code className={styles.codeBlock}>{obsUrl || "carregando..."}</code>
-            <div className={styles.obsActions}>
-              <button className={styles.secondaryButton} type="button" onClick={copyObsUrl}>
-                Copiar URL OBS
+      <section className={styles.card}>
+        <div className={styles.cardHead}>
+          <div>
+            <p className={styles.eyebrow}>Cena ao vivo</p>
+            <h2 className={styles.cardTitle}>Elementos ativos em tempo real</h2>
+          </div>
+          <span className={styles.sideHint}>
+            Versao {overlayVersion} | {activeElements.length} ativos
+          </span>
+        </div>
+
+        <div className={styles.liveControlsBar}>
+          <p className={styles.fieldHint}>
+            Aqui voce consegue parar, remover e ajustar os elementos que ja estao no palco sem
+            esperar o tempo acabar.
+          </p>
+          <button
+            className={styles.ghostButton}
+            type="button"
+            disabled={activeElements.length === 0 || busyActiveElementId === "clear-all"}
+            onClick={() => void handleClearOverlayNow()}
+          >
+            {busyActiveElementId === "clear-all" ? "Limpando..." : "Limpar palco agora"}
+          </button>
+        </div>
+
+        {activeElements.length === 0 ? (
+          <div className={styles.emptyState}>Nenhum elemento ativo no palco neste momento.</div>
+        ) : (
+          <div className={styles.liveElementList}>
+            {activeElements.map((element) => (
+              <article className={styles.liveElementCard} key={element.id}>
+                <div className={styles.assetCardTop}>
+                  <div>
+                    <h4 className={styles.assetName}>{element.asset_name}</h4>
+                    <p className={styles.assetMeta}>
+                      {element.asset_command} | por @{element.added_by_handle}
+                    </p>
+                    <p className={styles.assetMeta}>{summarizeActiveElementVisual(element)}</p>
+                  </div>
+                  <span className={styles.assetBadge}>{formatStageAssetType(element.media_type)}</span>
+                </div>
+
+                {(element.media_type === "image" || element.media_type === "video") ? (
+                  <div className={styles.liveQuickGrid}>
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>X%</span>
+                      <input
+                        className={styles.textInput}
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={element.display_x_percent}
+                        onBlur={(event) =>
+                          void handleActiveElementFieldUpdate(
+                            element,
+                            "displayXPercent",
+                            event.target.value
+                          )
+                        }
+                      />
+                    </label>
+
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>Y%</span>
+                      <input
+                        className={styles.textInput}
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={element.display_y_percent}
+                        onBlur={(event) =>
+                          void handleActiveElementFieldUpdate(
+                            element,
+                            "displayYPercent",
+                            event.target.value
+                          )
+                        }
+                      />
+                    </label>
+
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>Tamanho%</span>
+                      <input
+                        className={styles.textInput}
+                        type="number"
+                        min={5}
+                        max={150}
+                        value={element.display_size_percent}
+                        onBlur={(event) =>
+                          void handleActiveElementFieldUpdate(
+                            element,
+                            "displaySizePercent",
+                            event.target.value
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+                ) : null}
+
+                {element.media_type === "sound" ? (
+                  <div className={styles.liveQuickGrid}>
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>Volume%</span>
+                      <input
+                        className={styles.textInput}
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={element.audio_volume_percent}
+                        onBlur={(event) =>
+                          void handleActiveElementFieldUpdate(
+                            element,
+                            "audioVolumePercent",
+                            event.target.value
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+                ) : null}
+
+                <div className={styles.assetActions}>
+                  <button
+                    className={styles.ghostButton}
+                    type="button"
+                    disabled={busyActiveElementId === element.id}
+                    onClick={() => void handleRemoveActiveElement(element)}
+                  >
+                    {busyActiveElementId === element.id ? "Removendo..." : "Parar e remover"}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {editingAsset && editStyleDraft ? (
+        <section className={styles.card}>
+          <div className={styles.cardHead}>
+            <div>
+              <p className={styles.eyebrow}>Editor visual</p>
+              <h2 className={styles.cardTitle}>Ajustar {editingAsset.name}</h2>
+            </div>
+            <span className={styles.sideHint}>
+              {formatStageAssetType(editingAsset.media_type)} | {editingAsset.command}
+            </span>
+          </div>
+
+          <form className={styles.assetForm} onSubmit={handleSaveAssetEdit}>
+            <StageAssetConfigurator
+              title="Preview do asset salvo"
+              helperText="Essa edicao altera como o asset sera exibido na live nas proximas vezes."
+              mediaType={editingAsset.media_type}
+              previewUrl={editingAsset.media_url}
+              assetName={editingAsset.name}
+              draft={editStyleDraft}
+              onFieldChange={updateEditStyleDraft}
+            />
+
+            <div className={styles.formFooter}>
+              <button className={styles.ghostButton} type="button" onClick={cancelEditingAsset}>
+                Cancelar
               </button>
               <button className={styles.ghostButton} type="button" onClick={() => router.push("/live")}>
                 Voltar
