@@ -21,6 +21,21 @@
   display: none;
 }
 
+.overlayError {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 9999;
+  max-width: min(760px, 92vw);
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 120, 120, 0.7);
+  border-radius: 8px;
+  background: rgba(45, 8, 8, 0.85);
+  color: #ffd7d7;
+  font: 600 14px/1.35 "Inter", "Segoe UI", sans-serif;
+  text-shadow: none;
+}
+
 .visualLayer {
   position: absolute;
   inset: 0;

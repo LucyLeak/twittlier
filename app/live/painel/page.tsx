@@ -502,10 +502,27 @@ export default function LiveModPanelPage() {
   const [isForbidden, setIsForbidden] = useState(false);
   const [editingAssetId, setEditingAssetId] = useState("");
   const [editStyleDraft, setEditStyleDraft] = useState<StageAssetStyleDraft | null>(null);
+  const [assetFolderMap, setAssetFolderMap] = useState<Record<string, string>>({});
+  const [activeFolder, setActiveFolder] = useState("Todos");
+  const [newFolderName, setNewFolderName] = useState("");
 
   const soundAssets = assets.filter((asset) => asset.media_type === "sound");
   const imageAssets = assets.filter((asset) => asset.media_type === "image");
   const videoAssets = assets.filter((asset) => asset.media_type === "video");
+  const folderNames = Array.from(
+    new Set(
+      assets
+        .map((asset) => assetFolderMap[asset.id] || "Sem pasta")
+        .filter((folder) => !!folder)
+    )
+  ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const visibleAssets =
+    activeFolder === "Todos"
+      ? assets
+      : assets.filter((asset) => (assetFolderMap[asset.id] || "Sem pasta") === activeFolder);
+  const visibleSoundAssets = visibleAssets.filter((asset) => asset.media_type === "sound");
+  const visibleImageAssets = visibleAssets.filter((asset) => asset.media_type === "image");
+  const visibleVideoAssets = visibleAssets.filter((asset) => asset.media_type === "video");
   const editingAsset =
     editingAssetId && editStyleDraft
       ? assets.find((asset) => asset.id === editingAssetId) || null
@@ -540,6 +557,47 @@ export default function LiveModPanelPage() {
     setEditingAssetId("");
     setEditStyleDraft(null);
   }, [assets, editingAssetId]);
+
+  useEffect(() => {
+    if (!roomOwnerAccount) return;
+    const key = `tw:asset-folders:${roomOwnerAccount.handle}`;
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) {
+        setAssetFolderMap({});
+        setActiveFolder("Todos");
+        return;
+      }
+      const parsed = JSON.parse(raw) as Record<string, string>;
+      setAssetFolderMap(parsed || {});
+      setActiveFolder("Todos");
+    } catch {
+      setAssetFolderMap({});
+      setActiveFolder("Todos");
+    }
+  }, [roomOwnerAccount?.handle]);
+
+  useEffect(() => {
+    if (!roomOwnerAccount) return;
+    const key = `tw:asset-folders:${roomOwnerAccount.handle}`;
+    window.localStorage.setItem(key, JSON.stringify(assetFolderMap));
+  }, [assetFolderMap, roomOwnerAccount]);
+
+  function assignAssetFolder(assetId: string, folderName: string) {
+    const normalized = folderName.trim().slice(0, 28);
+    if (!normalized) {
+      setAssetFolderMap((current) => {
+        const next = { ...current };
+        delete next[assetId];
+        return next;
+      });
+      return;
+    }
+    setAssetFolderMap((current) => ({
+      ...current,
+      [assetId]: normalized
+    }));
+  }
 
   function updateCreateStyleDraft(field: StageAssetStyleField, value: string) {
     setCreateStyleDraft((current) => ({
@@ -630,6 +688,9 @@ export default function LiveModPanelPage() {
     }
 
     setRoomOwnerAccount(roomOwner);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("tw:last-stream-handle", roomOwner.handle);
+    }
     if (updateUrl) {
       router.replace(`/live/painel?stream=${encodeURIComponent(normalized)}`, { scroll: false });
     }
@@ -670,7 +731,10 @@ export default function LiveModPanelPage() {
       }
 
       const params = new URLSearchParams(window.location.search);
-      const requestedStream = normalizeHandle(params.get("stream") || ensuredViewer.handle);
+      const rememberedStream = normalizeHandle(window.localStorage.getItem("tw:last-stream-handle") || "");
+      const requestedStream = normalizeHandle(
+        params.get("stream") || rememberedStream || ensuredViewer.handle
+      );
       await switchRoom(requestedStream, ensuredViewer, false);
     }
 
@@ -1102,7 +1166,7 @@ export default function LiveModPanelPage() {
 
   async function copyObsUrl() {
     if (!origin || !roomOwnerAccount) return;
-    const obsUrl = `${origin}/live/painel/overlay?stream=${roomOwnerAccount.handle}`;
+    const obsUrl = `${origin}/live/painel/overlay?stream=${encodeURIComponent(roomOwnerAccount.handle)}`;
     try {
       await navigator.clipboard.writeText(obsUrl);
       setStatus("URL do OBS copiada.");
@@ -1141,7 +1205,7 @@ export default function LiveModPanelPage() {
 
   const obsUrl =
     origin && roomOwnerAccount
-      ? `${origin}/live/painel/overlay?stream=${roomOwnerAccount.handle}`
+      ? `${origin}/live/painel/overlay?stream=${encodeURIComponent(roomOwnerAccount.handle)}`
       : "";
 
   const activityListContent =
@@ -1238,6 +1302,9 @@ export default function LiveModPanelPage() {
             <button className={styles.secondaryButton} type="button" onClick={copyObsUrl}>
               Copiar URL base
             </button>
+            <a className={styles.secondaryButton} href={obsUrl || "#"} target="_blank" rel="noreferrer">
+              Abrir overlay
+            </a>
             <button className={styles.ghostButton} type="button" onClick={() => router.push("/live")}>
               Voltar para Live
             </button>
@@ -1587,22 +1654,57 @@ export default function LiveModPanelPage() {
         <div className={styles.sectionHead}>
           <div>
             <p className={styles.eyebrow}>Biblioteca ao vivo</p>
-            <h2 className={styles.cardTitle}>Assets prontos para palco</h2>
+            <h2 className={styles.cardTitle}>Assets organizados por pasta</h2>
           </div>
-          <span className={styles.sideHint}>Clique ou use os atalhos cadastrados</span>
+          <span className={styles.sideHint}>Layout estilo sidebar (StreamLabs)</span>
         </div>
-
-        <div className={styles.libraryColumns}>
-          <div className={styles.libraryColumn}>
-            <div className={styles.libraryColumnHead}>
-              <h3 className={styles.libraryTitle}>Soundboard</h3>
-              <span className={styles.counterChip}>{soundAssets.length}</span>
+        <div className={styles.libraryWorkspace}>
+          <aside className={styles.folderSidebar}>
+            <button
+              type="button"
+              className={activeFolder === "Todos" ? styles.folderButtonActive : styles.folderButton}
+              onClick={() => setActiveFolder("Todos")}
+            >
+              Todos ({assets.length})
+            </button>
+            {folderNames.map((folder) => (
+              <button
+                key={folder}
+                type="button"
+                className={activeFolder === folder ? styles.folderButtonActive : styles.folderButton}
+                onClick={() => setActiveFolder(folder)}
+              >
+                {folder}
+              </button>
+            ))}
+            <div className={styles.folderCreateRow}>
+              <input
+                className={styles.textInput}
+                value={newFolderName}
+                placeholder="Nova pasta"
+                onChange={(event) => setNewFolderName(event.target.value)}
+              />
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={() => {
+                  const candidate = newFolderName.trim().slice(0, 28);
+                  if (!candidate) return;
+                  setActiveFolder(candidate);
+                  setNewFolderName("");
+                }}
+              >
+                Criar
+              </button>
             </div>
-            {soundAssets.length === 0 ? (
-              <div className={styles.emptyState}>Nenhum som cadastrado ainda.</div>
+          </aside>
+
+          <div className={styles.libraryColumn}>
+            {visibleAssets.length === 0 ? (
+              <div className={styles.emptyState}>Nenhum asset nessa pasta.</div>
             ) : (
               <div className={styles.assetList}>
-                {soundAssets.map((asset) => (
+                {visibleAssets.map((asset) => (
                   <article className={styles.assetCard} key={asset.id}>
                     <div className={styles.assetCardTop}>
                       <div>
@@ -1610,11 +1712,37 @@ export default function LiveModPanelPage() {
                         <p className={styles.assetMeta}>
                           {asset.command} | {formatShortcutLabel(asset.shortcut_key)}
                         </p>
-                        <p className={styles.assetMeta}>{summarizeStageAssetVisual(asset)}</p>
+                        <p className={styles.assetMeta}>
+                          {formatStageAssetType(asset.media_type)} | {summarizeStageAssetVisual(asset)}
+                        </p>
                       </div>
-                      <span className={styles.assetBadge}>Som</span>
+                      <span className={styles.assetBadge}>{formatStageAssetType(asset.media_type)}</span>
                     </div>
-                    <audio className={styles.compactPreview} src={asset.media_url} controls preload="none" />
+
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>Pasta</span>
+                      <input
+                        className={styles.textInput}
+                        value={assetFolderMap[asset.id] || ""}
+                        placeholder="Sem pasta"
+                        onBlur={(event) => assignAssetFolder(asset.id, event.target.value)}
+                        onChange={(event) =>
+                          setAssetFolderMap((current) => ({
+                            ...current,
+                            [asset.id]: event.target.value
+                          }))
+                        }
+                      />
+                    </label>
+
+                    {asset.media_type === "sound" ? (
+                      <audio className={styles.compactPreview} src={asset.media_url} controls preload="none" />
+                    ) : asset.media_type === "image" ? (
+                      <img className={styles.cardMedia} src={asset.media_url} alt={asset.name} />
+                    ) : (
+                      <video className={styles.cardMedia} src={asset.media_url} controls preload="metadata" />
+                    )}
+
                     <div className={styles.assetActions}>
                       <button
                         className={styles.primaryButton}
@@ -1622,7 +1750,7 @@ export default function LiveModPanelPage() {
                         disabled={busyAssetId === asset.id}
                         onClick={() => void triggerAsset(asset)}
                       >
-                        {busyAssetId === asset.id ? "Enviando..." : "Tocar na live"}
+                        {busyAssetId === asset.id ? "Enviando..." : "Disparar"}
                       </button>
                       <button
                         className={styles.secondaryButton}
@@ -1630,7 +1758,7 @@ export default function LiveModPanelPage() {
                         disabled={busyAssetId === asset.id}
                         onClick={() => startEditingAsset(asset)}
                       >
-                        Editar visual
+                        Editar
                       </button>
                       <button
                         className={styles.ghostButton}
@@ -1645,114 +1773,10 @@ export default function LiveModPanelPage() {
                 ))}
               </div>
             )}
-          </div>
-
-          <div className={styles.libraryColumn}>
-            <div className={styles.libraryColumnHead}>
-              <h3 className={styles.libraryTitle}>Imagens</h3>
-              <span className={styles.counterChip}>{imageAssets.length}</span>
-            </div>
-            {imageAssets.length === 0 ? (
-              <div className={styles.emptyState}>Nenhuma imagem pronta para o overlay.</div>
-            ) : (
-              <div className={styles.assetList}>
-                {imageAssets.map((asset) => (
-                  <article className={styles.assetCard} key={asset.id}>
-                    <div className={styles.assetCardTop}>
-                      <div>
-                        <h4 className={styles.assetName}>{asset.name}</h4>
-                        <p className={styles.assetMeta}>
-                          {asset.command} | {formatShortcutLabel(asset.shortcut_key)}
-                        </p>
-                        <p className={styles.assetMeta}>{summarizeStageAssetVisual(asset)}</p>
-                      </div>
-                      <span className={styles.assetBadge}>Imagem</span>
-                    </div>
-                    <img className={styles.cardMedia} src={asset.media_url} alt={asset.name} />
-                    <div className={styles.assetActions}>
-                      <button
-                        className={styles.primaryButton}
-                        type="button"
-                        disabled={busyAssetId === asset.id}
-                        onClick={() => void triggerAsset(asset)}
-                      >
-                        {busyAssetId === asset.id ? "Enviando..." : "Mostrar na live"}
-                      </button>
-                      <button
-                        className={styles.secondaryButton}
-                        type="button"
-                        disabled={busyAssetId === asset.id}
-                        onClick={() => startEditingAsset(asset)}
-                      >
-                        Editar visual
-                      </button>
-                      <button
-                        className={styles.ghostButton}
-                        type="button"
-                        disabled={busyAssetId === asset.id}
-                        onClick={() => void handleDeleteAsset(asset)}
-                      >
-                        Remover
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className={styles.libraryColumn}>
-            <div className={styles.libraryColumnHead}>
-              <h3 className={styles.libraryTitle}>Videos</h3>
-              <span className={styles.counterChip}>{videoAssets.length}</span>
-            </div>
-            {videoAssets.length === 0 ? (
-              <div className={styles.emptyState}>Nenhum video cadastrado ainda.</div>
-            ) : (
-              <div className={styles.assetList}>
-                {videoAssets.map((asset) => (
-                  <article className={styles.assetCard} key={asset.id}>
-                    <div className={styles.assetCardTop}>
-                      <div>
-                        <h4 className={styles.assetName}>{asset.name}</h4>
-                        <p className={styles.assetMeta}>
-                          {asset.command} | {formatShortcutLabel(asset.shortcut_key)}
-                        </p>
-                        <p className={styles.assetMeta}>{summarizeStageAssetVisual(asset)}</p>
-                      </div>
-                      <span className={styles.assetBadge}>Video</span>
-                    </div>
-                    <video className={styles.cardMedia} src={asset.media_url} controls preload="metadata" />
-                    <div className={styles.assetActions}>
-                      <button
-                        className={styles.primaryButton}
-                        type="button"
-                        disabled={busyAssetId === asset.id}
-                        onClick={() => void triggerAsset(asset)}
-                      >
-                        {busyAssetId === asset.id ? "Enviando..." : "Soltar no overlay"}
-                      </button>
-                      <button
-                        className={styles.secondaryButton}
-                        type="button"
-                        disabled={busyAssetId === asset.id}
-                        onClick={() => startEditingAsset(asset)}
-                      >
-                        Editar visual
-                      </button>
-                      <button
-                        className={styles.ghostButton}
-                        type="button"
-                        disabled={busyAssetId === asset.id}
-                        onClick={() => void handleDeleteAsset(asset)}
-                      >
-                        Remover
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
+            <p className={styles.fieldHint}>
+              Filtro atual: {activeFolder} | Sons {visibleSoundAssets.length} | Imagens{" "}
+              {visibleImageAssets.length} | Videos {visibleVideoAssets.length}
+            </p>
           </div>
         </div>
       </section>

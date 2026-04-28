@@ -1,838 +1,158 @@
-:global(html.tw-mod-panel-html) {
-  background:
-    radial-gradient(circle at top, rgba(98, 197, 255, 0.16), transparent 30%),
-    linear-gradient(180deg, #07131e 0%, #081019 100%);
-}
-
+:global(html.tw-mod-panel-html),
 :global(body.tw-mod-panel-body) {
-  background:
-    radial-gradient(circle at 15% 15%, rgba(65, 230, 184, 0.15), transparent 26%),
-    radial-gradient(circle at 85% 12%, rgba(255, 154, 87, 0.12), transparent 24%),
-    linear-gradient(180deg, #06111b 0%, #09121b 52%, #050c13 100%);
-  color: #eff7ff;
-  min-height: 100vh;
-}
-
-:global(body.tw-mod-panel-body .tw-mobile-nav) {
-  display: none !important;
+  background: radial-gradient(circle at 20% -10%, #182038 0%, #06080f 40%, #04050a 100%);
+  min-height: 100%;
 }
 
 .shell {
-  width: min(1480px, calc(100vw - 28px));
+  max-width: 1640px;
   margin: 0 auto;
-  padding: 28px 0 56px;
-  display: grid;
-  gap: 20px;
+  padding: 20px;
+  color: #d9e4ff;
+  font-family: Inter, "Segoe UI", sans-serif;
 }
 
 .heroCard,
 .card,
-.librarySection {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(131, 186, 232, 0.26);
-  background:
-    linear-gradient(180deg, rgba(12, 27, 41, 0.96), rgba(7, 18, 28, 0.95)),
-    rgba(8, 16, 25, 0.88);
-  box-shadow:
-    0 18px 60px rgba(0, 0, 0, 0.28),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(20px);
+.librarySection,
+.studioSidebar,
+.studioPreviewFrame,
+.studioStatCard,
+.assetCard,
+.liveElementCard,
+.activityItem,
+.visualEditor,
+.previewSurface,
+.obsBox {
+  border: 1px solid #232e4f;
+  background: linear-gradient(160deg, rgba(16, 21, 36, 0.96), rgba(8, 11, 22, 0.96));
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(1, 5, 16, 0.4);
 }
 
-.heroCard::before,
-.card::before,
-.librarySection::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(120deg, rgba(92, 237, 193, 0.1), transparent 34%),
-    linear-gradient(300deg, rgba(110, 181, 255, 0.08), transparent 28%);
-}
-
-.heroCard {
-  border-radius: 28px;
-  padding: 26px;
-}
-
+.heroCard,
 .card,
-.librarySection {
-  border-radius: 24px;
-  padding: 22px;
-}
+.librarySection { padding: 18px; margin-bottom: 16px; }
 
 .heroTop,
-.sectionHead,
 .cardHead,
-.libraryColumnHead,
+.sectionHead,
 .assetCardTop,
 .activityTop,
-.heroMeta,
-.obsActions,
-.noticeBar,
-.assetActions,
-.inlineFieldRow,
-.formFooter {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.heroTop,
-.sectionHead,
-.cardHead,
 .libraryColumnHead,
-.activityTop {
-  justify-content: space-between;
-}
-
-.heroGrid,
-.grid,
-.libraryColumns,
-.formColumns {
-  display: grid;
-  gap: 18px;
-}
-
-.studioWorkspace {
-  display: grid;
-  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(220px, 260px);
-  gap: 16px;
-  align-items: stretch;
-}
-
-.studioSidebar,
-.studioPreviewCenter {
-  border: 1px solid rgba(131, 186, 232, 0.26);
-  border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(12, 27, 41, 0.96), rgba(7, 18, 28, 0.95)),
-    rgba(8, 16, 25, 0.88);
-  box-shadow:
-    0 18px 60px rgba(0, 0, 0, 0.28),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-  padding: 16px;
-}
-
-.studioSidebar {
-  display: grid;
-  gap: 12px;
-  align-content: start;
-}
-
-.studioStatCard {
-  display: grid;
-  gap: 4px;
-  padding: 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(139, 174, 205, 0.18);
-  background: rgba(5, 13, 20, 0.48);
-}
-
-.studioStatCard strong {
-  font-size: 1.3rem;
-}
-
-.studioPreviewCenter {
-  display: grid;
-  gap: 12px;
-}
-
-.studioPreviewHead {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.studioPreviewFrame {
-  position: relative;
-  overflow: hidden;
-  border-radius: 20px;
-  border: 1px solid rgba(139, 174, 205, 0.2);
-  background: #090d14;
-  aspect-ratio: 16 / 9;
-  min-height: 420px;
-}
-
-.studioIframe {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  display: block;
-  background: #080c12;
-}
-
-.heroGrid,
-.grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.formColumns {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.libraryColumns {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.eyebrow {
-  margin: 0 0 8px;
-  font: 700 0.78rem/1 "IBM Plex Mono", "Courier New", monospace;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: #81e6c9;
-}
-
-.title {
-  margin: 0;
-  font: 600 clamp(2.1rem, 4vw, 3.7rem) / 0.96 "Cormorant Garamond", "Times New Roman", serif;
-  letter-spacing: 0.01em;
-  max-width: 16ch;
-}
-
-.cardTitle {
-  margin: 0;
-  font: 600 clamp(1.25rem, 2vw, 1.75rem) / 1.02 "Cormorant Garamond", "Times New Roman", serif;
-}
-
-.lead,
-.activityMeta,
-.assetMeta,
-.sideHint {
-  margin: 0;
-  color: #9eb7c9;
-  line-height: 1.45;
-}
-
-.lead {
-  margin-top: 10px;
-  max-width: 66ch;
-}
-
-.heroMeta {
-  justify-content: flex-end;
-}
-
-.metaChip,
-.counterChip,
-.assetBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 32px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(129, 230, 201, 0.28);
-  background: rgba(129, 230, 201, 0.08);
-  font: 600 0.77rem/1 "IBM Plex Mono", "Courier New", monospace;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #dffcf5;
-}
-
-.counterChip {
-  background: rgba(109, 181, 255, 0.14);
-  border-color: rgba(109, 181, 255, 0.24);
-  color: #dbebff;
-}
-
-.assetBadge {
-  min-height: 28px;
-  font-size: 0.72rem;
-}
-
-.inlineForm,
-.field,
-.assetForm {
-  display: grid;
-  gap: 10px;
-}
-
-.fieldLabel {
-  font: 600 0.76rem/1 "IBM Plex Mono", "Courier New", monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #80a6bf;
-}
-
-.textInput,
-.selectInput,
-.codeBlock {
-  width: 100%;
-  border: 1px solid rgba(110, 181, 255, 0.25);
-  background: rgba(3, 9, 15, 0.76);
-  color: #f6fbff;
-  font: inherit;
-  border-radius: 16px;
-  padding: 14px 16px;
-  outline: none;
-  transition:
-    border-color 0.18s ease,
-    transform 0.18s ease,
-    box-shadow 0.18s ease;
-}
-
-.textInput:focus,
-.selectInput:focus {
-  border-color: rgba(129, 230, 201, 0.75);
-  box-shadow: 0 0 0 4px rgba(129, 230, 201, 0.12);
-  transform: translateY(-1px);
-}
-
-.textInput::placeholder {
-  color: #638199;
-}
-
-.codeBlock {
-  display: block;
-  overflow-wrap: anywhere;
-  font-family: "IBM Plex Mono", "Courier New", monospace;
-  font-size: 0.84rem;
-  line-height: 1.55;
-}
-
-.primaryButton,
-.secondaryButton,
-.ghostButton {
-  appearance: none;
-  border-radius: 999px;
-  padding: 12px 16px;
-  font: 700 0.8rem/1 "IBM Plex Mono", "Courier New", monospace;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    border-color 0.18s ease,
-    background 0.18s ease;
-}
-
-.primaryButton:hover,
-.secondaryButton:hover,
-.ghostButton:hover {
-  transform: translateY(-1px);
-}
-
-.primaryButton:disabled,
-.secondaryButton:disabled,
-.ghostButton:disabled {
-  opacity: 0.6;
-  cursor: wait;
-  transform: none;
-}
-
-.primaryButton {
-  border: 1px solid rgba(129, 230, 201, 0.6);
-  background: linear-gradient(135deg, #47e2b6 0%, #1fb6ff 100%);
-  color: #04101a;
-  box-shadow: 0 12px 30px rgba(31, 182, 255, 0.22);
-}
-
-.secondaryButton {
-  border: 1px solid rgba(111, 181, 255, 0.34);
-  background: rgba(111, 181, 255, 0.12);
-  color: #eaf4ff;
-}
-
-.ghostButton {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
-  color: #cfe0ec;
-}
-
-.obsBox,
-.uploadField,
-.previewBox,
-.activityItem,
-.assetCard,
-.emptyState {
-  position: relative;
-  border-radius: 20px;
-  border: 1px solid rgba(139, 174, 205, 0.18);
-  background: rgba(5, 13, 20, 0.48);
-}
-
-.obsBox {
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-  margin-top: 18px;
-}
-
-.obsActions {
-  justify-content: flex-start;
-}
-
-.noticeBar {
-  margin-top: 18px;
-  justify-content: space-between;
-  padding-top: 16px;
-  border-top: 1px solid rgba(130, 170, 199, 0.14);
-  color: #8eb0c7;
-  font-size: 0.92rem;
-}
-
-.statusText,
-.errorText {
-  margin: 12px 0 0;
-  font-weight: 600;
-}
-
-.statusText {
-  color: #9ef1d6;
-}
-
-.errorText {
-  color: #ff9898;
-}
-
-.uploadField {
-  display: grid;
-  gap: 6px;
-  cursor: pointer;
-  padding: 18px;
-  border-style: dashed;
-}
-
-.uploadTitle {
-  font-weight: 700;
-}
-
-.uploadMeta {
-  color: #89a7bc;
-  font-size: 0.92rem;
-}
-
-.hiddenInput {
-  position: absolute;
-  opacity: 0;
-  width: 1px;
-  height: 1px;
-  pointer-events: none;
-}
-
-.previewBox {
-  display: grid;
-  gap: 10px;
-  padding: 14px;
-}
-
-.visualEditor,
-.previewPanel,
-.audioPreviewBox {
-  display: grid;
-  gap: 12px;
-}
-
-.visualEditor {
-  padding: 16px;
-  border-radius: 22px;
-  border: 1px solid rgba(139, 174, 205, 0.18);
-  background: rgba(3, 10, 16, 0.42);
-}
-
-.visualEditorHead,
 .previewSurfaceHead,
+.visualEditorHead,
+.coordinateHead,
+.formFooter,
+.obsActions,
+.studioPreviewHead,
+.inlineFieldRow,
+.assetActions,
+.liveControlsBar,
+.heroMeta,
+.noticeBar,
+.heroGrid,
+.studioWorkspace,
+.grid,
+.formColumns,
+.libraryColumns,
+.liveQuickGrid,
+.visualEditorGrid,
 .rangeRow {
   display: flex;
-  align-items: center;
   gap: 10px;
-  justify-content: space-between;
-  flex-wrap: wrap;
 }
 
-.previewHint,
-.fieldHint {
-  margin: 0;
-  color: #8ca8bb;
-  font-size: 0.9rem;
-  line-height: 1.4;
+.heroTop, .cardHead, .sectionHead, .assetCardTop, .activityTop, .libraryColumnHead, .previewSurfaceHead, .visualEditorHead, .coordinateHead, .formFooter, .obsActions, .studioPreviewHead { justify-content: space-between; align-items: center; }
+.heroGrid, .grid, .libraryColumns, .studioWorkspace, .visualEditorGrid { align-items: stretch; }
+.heroGrid, .grid { flex-wrap: wrap; }
+
+.title { margin: 6px 0 8px; font-size: 1.9rem; }
+.cardTitle { margin: 4px 0 0; font-size: 1.15rem; }
+.eyebrow { margin: 0; text-transform: uppercase; letter-spacing: .08em; color: #72a5ff; font-size: .75rem; font-weight: 700; }
+.lead { margin: 0; color: #93a3c8; max-width: 78ch; }
+.sideHint, .fieldHint, .assetMeta, .activityMeta, .previewHint, .uploadMeta { color: #8fa0c7; font-size: .86rem; margin: 0; }
+
+.metaChip, .counterChip, .assetBadge, .previewSurfaceBadge { border: 1px solid #34518a; background: #10182d; color: #a9c8ff; border-radius: 999px; padding: 4px 10px; font-size: .75rem; }
+.counterChip { min-width: 30px; text-align: center; }
+
+.inlineForm { flex: 1; min-width: 260px; }
+.inlineFieldRow { align-items: center; }
+
+.obsBox { padding: 12px; display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+.codeBlock {
+  display: block; margin-top: 6px; padding: 10px; border-radius: 8px; background: #050913; color: #75f4ff; border: 1px solid #223458;
+  overflow-x: auto;
 }
+.noticeBar { flex-wrap: wrap; color: #9cb3e3; font-size: .85rem; }
+.statusText { color: #7effd4; margin: 8px 0 0; }
+.errorText { color: #ff9ea1; margin: 8px 0 0; }
 
-.visualEditorGrid {
-  display: grid;
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
+.studioWorkspace { display: grid; grid-template-columns: 220px 1fr 220px; gap: 12px; }
+.studioSidebar { padding: 14px; display: grid; gap: 10px; align-content: start; }
+.studioPreviewCenter { min-width: 0; }
+.studioPreviewFrame { padding: 10px; min-height: 340px; }
+.studioIframe { width: 100%; height: 100%; min-height: 320px; border: 0; border-radius: 10px; background: #020204; }
+.studioStatCard { padding: 10px; display: flex; justify-content: space-between; align-items: center; }
+
+.grid { display: grid; grid-template-columns: 1.3fr .7fr; gap: 12px; }
+.assetForm, .field, .libraryColumn, .visualControls, .previewPanel { display: grid; gap: 10px; }
+.formColumns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+
+.fieldLabel { display: block; color: #b8c8ec; font-size: .85rem; font-weight: 600; margin-bottom: 4px; }
+.textInput, .selectInput, .rangeInput {
+  width: 100%; border: 1px solid #2f426f; background: #060c1c; color: #e4ecff; border-radius: 8px; padding: 9px 10px;
 }
+.rangeRow { align-items: center; }
+.rangeValue { min-width: 54px; text-align: right; color: #9dc7ff; }
 
-.visualControls {
-  display: grid;
-  gap: 12px;
+.primaryButton, .secondaryButton, .ghostButton {
+  border-radius: 8px; border: 1px solid transparent; padding: 9px 12px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center;
 }
+.primaryButton { background: linear-gradient(135deg, #3278ff, #34a8ff); color: white; }
+.secondaryButton { background: #162440; border-color: #2f4f88; color: #d4e5ff; }
+.ghostButton { background: transparent; border-color: #31456f; color: #c8d8fb; }
+.primaryButton:disabled, .secondaryButton:disabled, .ghostButton:disabled { opacity: .5; cursor: not-allowed; }
 
-.coordinatePanel {
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(139, 174, 205, 0.14);
-  background: rgba(255, 255, 255, 0.03);
-}
+.uploadField { border: 1px dashed #3b5a95; padding: 14px; border-radius: 10px; background: #070d1c; cursor: pointer; }
+.hiddenInput { display: none; }
+.uploadTitle { display: block; font-weight: 700; color: #cde0ff; margin-bottom: 3px; }
 
-.coordinateHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-}
+.visualEditor { padding: 12px; }
+.visualEditorGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.coordinatePanel, .audioPreviewBox { border: 1px solid #2a3d67; border-radius: 10px; padding: 10px; background: #070d1a; }
+.previewSurface { padding: 10px; }
+.previewStage { position: relative; border: 1px solid #304a7b; border-radius: 10px; background: #02050d; height: 260px; overflow: hidden; cursor: crosshair; }
+.previewStage[data-draggable="false"] { cursor: default; }
+.previewMediaLayer { position: absolute; inset: 0; }
+.previewMediaFrame { position: absolute; transform: translate(-50%, -50%); }
+.previewStageMedia { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; }
+.previewStageMedia[data-fit="cover"] { object-fit: cover; }
+.previewNotice, .previewEmpty { position: absolute; left: 12px; right: 12px; bottom: 12px; padding: 8px 10px; border-radius: 8px; background: rgba(10, 17, 34, 0.9); }
+.compactPreview { width: 100%; }
 
-.rangeInput {
-  flex: 1;
-  margin: 0;
-  accent-color: #47e2b6;
-}
+.libraryColumns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.libraryColumn { min-width: 0; }
+.libraryWorkspace { display: grid; grid-template-columns: 240px 1fr; gap: 12px; }
+.folderSidebar { border: 1px solid #2a3e68; border-radius: 12px; background: #070e1d; padding: 10px; display: grid; gap: 8px; align-content: start; }
+.folderButton, .folderButtonActive { border: 1px solid #2e4778; background: #0d1528; color: #b7cbf2; border-radius: 8px; padding: 8px 10px; text-align: left; cursor: pointer; }
+.folderButtonActive { border-color: #3e7eff; background: #162846; color: #e1ecff; }
+.folderCreateRow { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 8px; }
+.assetList, .activityList, .liveElementList { display: grid; gap: 10px; max-height: 620px; overflow: auto; padding-right: 4px; }
+.assetCard, .activityItem, .liveElementCard { padding: 12px; }
+.assetName { margin: 0 0 4px; }
+.cardMedia { width: 100%; max-height: 160px; object-fit: contain; border-radius: 8px; border: 1px solid #26395f; background: #02060f; }
+.assetActions { flex-wrap: wrap; }
 
-.rangeValue {
-  font: 700 0.78rem/1 "IBM Plex Mono", "Courier New", monospace;
-  color: #dffcf5;
-}
+.liveControlsBar { margin-bottom: 10px; align-items: center; justify-content: space-between; }
+.liveQuickGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 
-.previewSurface {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  border-radius: 22px;
-  border: 1px solid rgba(139, 174, 205, 0.18);
-  background:
-    radial-gradient(circle at top, rgba(98, 197, 255, 0.1), transparent 52%),
-    rgba(4, 11, 17, 0.72);
-}
+.emptyState { border: 1px dashed #3a4f80; border-radius: 10px; padding: 12px; color: #8ca3ce; background: #070d1b; }
 
-.previewSurfaceBadge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: rgba(111, 181, 255, 0.08);
-  border: 1px solid rgba(111, 181, 255, 0.18);
-  color: #d5e9fb;
-  font: 600 0.72rem/1 "IBM Plex Mono", "Courier New", monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.previewStage {
-  position: relative;
-  overflow: hidden;
-  aspect-ratio: 16 / 9;
-  border-radius: 18px;
-  border: 1px solid rgba(139, 174, 205, 0.18);
-  background:
-    linear-gradient(rgba(129, 230, 201, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(129, 230, 201, 0.05) 1px, transparent 1px),
-    radial-gradient(circle at 20% 20%, rgba(129, 230, 201, 0.08), transparent 28%),
-    linear-gradient(180deg, rgba(5, 17, 25, 0.95), rgba(2, 8, 14, 0.92));
-  background-size: 24px 24px, 24px 24px, auto, auto;
-  cursor: default;
-}
-
-.previewStage[data-draggable="true"] {
-  cursor: grab;
-}
-
-.previewStage[data-draggable="true"]:active {
-  cursor: grabbing;
-}
-
-.previewMediaLayer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.previewMediaFrame {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  overflow: hidden;
-  border-radius: 18px;
-  border: 1px dashed rgba(129, 230, 201, 0.35);
-  box-shadow:
-    0 18px 44px rgba(0, 0, 0, 0.26),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-  pointer-events: none;
-}
-
-.previewStageMedia {
-  display: block;
-  width: 100%;
-  height: 100%;
-  background: transparent;
-}
-
-.previewStageMedia[data-fit="contain"] {
-  object-fit: contain;
-}
-
-.previewStageMedia[data-fit="cover"] {
-  object-fit: cover;
-}
-
-.previewEmpty {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 18px;
-  text-align: center;
-  color: #8ca8bb;
-  font-size: 0.95rem;
-}
-
-.previewNotice {
-  position: absolute;
-  left: 16px;
-  bottom: 16px;
-  max-width: min(82%, 520px);
-  color: #eff8ff;
-  font: 700 clamp(0.9rem, 1vw, 1.18rem) / 1.35 "IBM Plex Sans", "Trebuchet MS", sans-serif;
-  text-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.8),
-    0 0 18px rgba(0, 0, 0, 0.45);
-}
-
-.audioPreviewBox {
-  padding: 12px 14px;
-  border-radius: 18px;
-  border: 1px solid rgba(139, 174, 205, 0.18);
-  background: rgba(3, 10, 16, 0.42);
-}
-
-.previewMediaFrame[data-animation="fade"],
-.previewNotice[data-animation="fade"] {
-  animation: stageFadeIn 0.42s ease-out both;
-}
-
-.previewMediaFrame[data-animation="pop"],
-.previewNotice[data-animation="pop"] {
-  animation: stagePopIn 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-.previewMediaFrame[data-animation="slide-up"],
-.previewNotice[data-animation="slide-up"] {
-  animation: stageSlideUpIn 0.48s ease-out both;
-}
-
-.previewMediaFrame[data-animation="slide-left"],
-.previewNotice[data-animation="slide-left"] {
-  animation: stageSlideLeftIn 0.48s ease-out both;
-}
-
-.previewMediaFrame[data-animation="none"],
-.previewNotice[data-animation="none"] {
-  animation: none;
-}
-
-.previewTitle,
-.assetName {
-  margin: 0;
-}
-
-.previewTitle {
-  font: 700 0.75rem/1 "IBM Plex Mono", "Courier New", monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #8fb6d1;
-}
-
-.previewMedia,
-.cardMedia,
-.compactPreview {
-  width: 100%;
-  border-radius: 18px;
-  background: #01070d;
-}
-
-.previewMedia,
-.cardMedia {
-  max-height: 340px;
-  object-fit: contain;
-}
-
-.compactPreview {
-  min-height: 54px;
-}
-
-.formFooter,
-.assetActions {
-  justify-content: space-between;
-}
-
-.activityList,
-.assetList {
-  display: grid;
-  gap: 12px;
-}
-
-.liveControlsBar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-
-.liveElementList {
-  display: grid;
-  gap: 12px;
-}
-
-.liveElementCard {
-  display: grid;
-  gap: 10px;
-  padding: 16px;
-  border-radius: 20px;
-  border: 1px solid rgba(139, 174, 205, 0.18);
-  background: rgba(5, 13, 20, 0.48);
-}
-
-.liveQuickGrid {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.activityItem,
-.assetCard,
-.emptyState {
-  padding: 16px;
-}
-
-.activityMeta {
-  font-size: 0.92rem;
-}
-
-.librarySection {
-  display: grid;
-  gap: 18px;
-}
-
-.libraryColumn {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-}
-
-.libraryTitle {
-  margin: 0;
-  font: 700 0.92rem/1 "IBM Plex Mono", "Courier New", monospace;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #d8ebf8;
-}
-
-.assetCard {
-  display: grid;
-  gap: 12px;
-}
-
-.assetName {
-  font-size: 1.08rem;
-  line-height: 1.1;
-}
-
-@keyframes stageFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes stagePopIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes stageSlideUpIn {
-  from {
-    opacity: 0;
-    transform: translateY(24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes stageSlideLeftIn {
-  from {
-    opacity: 0;
-    transform: translateX(-26px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.emptyState {
-  color: #9ab6c9;
-  min-height: 112px;
-  display: grid;
-  place-items: center;
-  text-align: center;
-}
-
-@media (max-width: 1180px) {
-  .studioWorkspace,
-  .heroGrid,
-  .grid,
-  .libraryColumns {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 780px) {
-  .shell {
-    width: min(100vw - 18px, 100%);
-    padding-top: 16px;
-    padding-bottom: 24px;
-  }
-
-  .heroCard,
-  .card,
-  .librarySection {
-    border-radius: 20px;
-    padding: 18px;
-  }
-
-  .formColumns {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .visualEditorGrid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .liveQuickGrid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .noticeBar,
-  .formFooter,
-  .assetActions,
-  .visualEditorHead,
-  .previewSurfaceHead,
-  .rangeRow,
-  .coordinateHead {
-    flex-direction: column;
-    align-items: stretch;
-  }
+@media (max-width: 1200px) {
+  .studioWorkspace { grid-template-columns: 1fr; }
+  .grid { grid-template-columns: 1fr; }
+  .libraryColumns { grid-template-columns: 1fr; }
+  .libraryWorkspace { grid-template-columns: 1fr; }
+  .formColumns, .visualEditorGrid, .liveQuickGrid { grid-template-columns: 1fr; }
 }

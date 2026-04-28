@@ -14,6 +14,7 @@ export async function proxy(request: NextRequest) {
     pathname === "/acesso" ||
     pathname === "/api/access" ||
     pathname === "/api/live-overlay" ||
+    pathname === "/api/live-overlay-state" ||
     pathname === "/api/live-cleanup" ||
     pathname === "/api/live-stage-feed";
 
