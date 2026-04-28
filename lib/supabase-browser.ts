@@ -2,6 +2,7 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 import { SupabaseClient } from "@supabase/supabase-js";
+import { assertSupabaseClientConfig } from "@/lib/supabase-config";
 
 let browserClient: SupabaseClient | null = null;
 const DEFAULT_FETCH_TIMEOUT_MS = 8000;
@@ -55,18 +56,7 @@ function createTimeoutFetch() {
 const timeoutFetch = createTimeoutFetch();
 
 function getSupabaseConfig() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabasePublishableKey =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabasePublishableKey) {
-    throw new Error(
-      "Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (ou NEXT_PUBLIC_SUPABASE_ANON_KEY)."
-    );
-  }
-
-  return { supabaseUrl, supabasePublishableKey };
+  return assertSupabaseClientConfig();
 }
 
 export function getSupabaseBrowserClient() {
