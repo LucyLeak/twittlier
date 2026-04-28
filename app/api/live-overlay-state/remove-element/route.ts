@@ -20,10 +20,10 @@ function getAdminClient() {
 export async function DELETE(request: Request) {
   try {
     const admin = getAdminClient();
-    const sessionUser = await getSessionUserWithRetry(admin);
+    const { user: sessionUser, error: sessionError } = await getSessionUserWithRetry(admin);
     if (!sessionUser) {
       return NextResponse.json(
-        { error: "Nao autenticado." },
+        { error: sessionError?.message || "Nao autenticado." },
         { status: 401 }
       );
     }
