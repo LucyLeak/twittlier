@@ -45,17 +45,6 @@ type OverlayStateResponse = {
   timestamp: string;
 };
 
-type OverlayStateResponse = {
-  roomOwner: {
-    user_id: string;
-    handle: string;
-    name: string | null;
-  };
-  elements: OverlayActiveElement[];
-  version: number;
-  timestamp: string;
-};
-
 const SOUND_FALLBACK_TIMEOUT_MS = 30_000;
 
 export default function LiveStageOverlayPage() {
