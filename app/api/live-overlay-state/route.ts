@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getSessionUserWithRetry } from "@/lib/session-utils";
 import { normalizeHandle } from "@/lib/account-utils";
+import { getRouteSupabaseClient } from "@/lib/supabase-server";
 
 export type OverlayActiveElement = {
   id: string;
@@ -160,11 +160,16 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const sessionClient = await getRouteSupabaseClient();
     const admin = getAdminClient();
-    const sessionUser = await getSessionUserWithRetry(admin);
+    const {
+      data: { user: sessionUser },
+      error: sessionError
+    } = await sessionClient.auth.getUser();
+
     if (!sessionUser) {
       return NextResponse.json(
-        { error: "Nao autenticado." },
+        { error: sessionError ? "Sessao expirada. Faca login novamente." : "Nao autenticado." },
         { status: 401 }
       );
     }
@@ -216,6 +221,12 @@ export async function POST(request: Request) {
       ).toISOString();
     }
 
+    const { data: authorAccount } = await admin
+      .from("accounts")
+      .select("handle")
+      .eq("user_id", sessionUser.id)
+      .maybeSingle();
+
     // Insert element
     const { data: insertedElement, error: insertError } = await admin
       .from("live_overlay_active_elements")
@@ -233,8 +244,8 @@ export async function POST(request: Request) {
         display_fit: displayFit || "contain",
         entry_animation: entryAnimation || "fade",
         audio_volume_percent: audioVolumePercent || 100,
-        added_by_user_id: sessionUser.user_id,
-        added_by_handle: sessionUser.handle || "unknown",
+        added_by_user_id: sessionUser.id,
+        added_by_handle: authorAccount?.handle || "unknown",
         expires_at: expiresAt
       })
       .select("*")
@@ -247,19 +258,26 @@ export async function POST(request: Request) {
       );
     }
 
-    // Increment version
-    await admin.rpc("increment_overlay_version", {
+    // Increment version (fallback when RPC is unavailable)
+    const { error: versionRpcError } = await admin.rpc("increment_overlay_version", {
       p_room_owner_id: roomOwnerId
-    }).catch(() => {
-      // If RPC doesn't exist, update manually
-      admin
+    });
+
+    if (versionRpcError) {
+      const { data: currentVersion } = await admin
+        .from("live_overlay_state_version")
+        .select("version")
+        .eq("room_owner_user_id", roomOwnerId)
+        .maybeSingle();
+
+      await admin
         .from("live_overlay_state_version")
         .upsert({
           room_owner_user_id: roomOwnerId,
-          version: 1,
+          version: (currentVersion?.version ?? 0) + 1,
           last_updated_at: new Date().toISOString()
         });
-    });
+    }
 
     return NextResponse.json(
       {
