@@ -26,6 +26,10 @@ import {
   normalizeStageCommand,
   STAGE_DISPLAY_FIT_OPTIONS,
   STAGE_ENTRY_ANIMATION_OPTIONS,
+  addElementToOverlayState,
+  updateOverlayElement,
+  removeOverlayElement,
+  clearOverlayState,
   type StageDisplayFit,
   type StageEntryAnimation,
   type StageAssetRow,
@@ -878,29 +882,9 @@ export default function LiveModPanelPage() {
     setStatus("");
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const { error: insertError } = await supabase.from("live_overlay_events").insert({
-        room_owner_user_id: roomOwnerAccount.user_id,
-        asset_id: asset.id,
-        asset_name: asset.name,
-        asset_command: asset.command,
-        media_url: asset.media_url,
-        media_type: asset.media_type,
-        image_duration_seconds: asset.image_duration_seconds,
-        display_size_percent: asset.display_size_percent,
-        display_x_percent: asset.display_x_percent,
-        display_y_percent: asset.display_y_percent,
-        display_position: asset.display_position,
-        display_fit: asset.display_fit,
-        entry_animation: asset.entry_animation,
-        audio_volume_percent: asset.audio_volume_percent,
-        triggered_by_user_id: viewerAccount.user_id,
-        triggered_by_handle: viewerAccount.handle
-      });
-
-      if (insertError) throw insertError;
-
-      setStatus(`${asset.name} entrou na fila do overlay da live.`);
+      // Add element to overlay state (stateful system)
+      await addElementToOverlayState(roomOwnerAccount.user_id, asset);
+      setStatus(`${asset.name} adicionado ao overlay em tempo real.`);
       await loadRecentStageEvents(roomOwnerAccount.user_id);
     } catch (caughtError) {
       const messageText =

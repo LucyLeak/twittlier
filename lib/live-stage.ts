@@ -242,3 +242,108 @@ export function extractStoragePathFromPublicUrl(url: string, bucketName: string)
   if (index < 0) return null;
   return decodeURIComponent(url.slice(index + marker.length));
 }
+
+// Add element to overlay state (stateful system)
+export async function addElementToOverlayState(
+  roomOwnerId: string,
+  asset: StageAssetRow
+) {
+  const response = await fetch("/api/live-overlay-state", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      roomOwnerId,
+      assetId: asset.id,
+      assetName: asset.name,
+      assetCommand: asset.command,
+      mediaUrl: asset.media_url,
+      mediaType: asset.media_type,
+      imageDurationSeconds: asset.image_duration_seconds,
+      displaySizePercent: asset.display_size_percent,
+      displayXPercent: asset.display_x_percent,
+      displayYPercent: asset.display_y_percent,
+      displayFit: asset.display_fit,
+      entryAnimation: asset.entry_animation,
+      audioVolumePercent: asset.audio_volume_percent,
+      // For images, set expiration
+      expiresInSeconds:
+        asset.media_type === "image"
+          ? (asset.image_duration_seconds ?? 8) + 2
+          : undefined
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: "Unknown error" }));
+    throw new Error(error.error || "Failed to add element to overlay");
+  }
+
+  return response.json();
+}
+
+// Update element position/properties in overlay state
+export async function updateOverlayElement(
+  elementId: string,
+  roomOwnerId: string,
+  updates: {
+    displayXPercent?: number;
+    displayYPercent?: number;
+    displaySizePercent?: number;
+    zIndex?: number;
+    audioVolumePercent?: number;
+  }
+) {
+  const response = await fetch("/api/live-overlay-state/update-element", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      elementId,
+      roomOwnerId,
+      ...updates
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: "Unknown error" }));
+    throw new Error(error.error || "Failed to update element");
+  }
+
+  return response.json();
+}
+
+// Remove element from overlay state
+export async function removeOverlayElement(elementId: string, roomOwnerId: string) {
+  const response = await fetch("/api/live-overlay-state/remove-element", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      elementId,
+      roomOwnerId
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: "Unknown error" }));
+    throw new Error(error.error || "Failed to remove element");
+  }
+
+  return response.json();
+}
+
+// Clear all elements from overlay state
+export async function clearOverlayState(roomOwnerId: string) {
+  const response = await fetch("/api/live-overlay-state/clear", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      roomOwnerId
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: "Unknown error" }));
+    throw new Error(error.error || "Failed to clear overlay");
+  }
+
+  return response.json();
+}

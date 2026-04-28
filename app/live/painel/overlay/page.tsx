@@ -3,7 +3,6 @@
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import {
   STAGE_OVERLAY_POLL_MS,
-  STAGE_SOUND_NOTICE_MS,
   clampStageAudioVolumePercent,
   clampStageDisplayCoordinatePercent,
   clampStageDisplaySizePercent,
@@ -15,7 +14,7 @@ import {
 } from "@/lib/live-stage";
 import styles from "./page.module.css";
 
-type OverlayEvent = {
+type OverlayActiveElement = {
   id: string;
   asset_id: string;
   asset_name: string;
@@ -29,149 +28,143 @@ type OverlayEvent = {
   display_fit: StageDisplayFit;
   entry_animation: StageEntryAnimation;
   audio_volume_percent: number;
-  triggered_by_handle: string;
+  z_index: number;
+  added_by_handle: string;
   created_at: string;
+  expires_at: string | null;
+};
+
+type OverlayStateResponse = {
+  roomOwner: {
+    user_id: string;
+    handle: string;
+    name: string | null;
+  };
+  elements: OverlayActiveElement[];
+  version: number;
+  timestamp: string;
+};
+
+type OverlayStateResponse = {
+  roomOwner: {
+    user_id: string;
+    handle: string;
+    name: string | null;
+  };
+  elements: OverlayActiveElement[];
+  version: number;
+  timestamp: string;
 };
 
 const SOUND_FALLBACK_TIMEOUT_MS = 30_000;
-const VIDEO_FALLBACK_TIMEOUT_MS = 180_000;
 
 export default function LiveStageOverlayPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const queueRef = useRef<OverlayEvent[]>([]);
-  const seenIdsRef = useRef<Set<string>>(new Set());
-  const initializedRef = useRef(false);
-  const currentEventRef = useRef<OverlayEvent | null>(null);
-  const processingRef = useRef(false);
-  const completionTimeoutRef = useRef<number | null>(null);
-  const noticeTimeoutRef = useRef<number | null>(null);
+  const videoRefsRef = useRef<Map<string, HTMLVideoElement | null>>(new Map());
+  const lastVersionRef = useRef(-1);
+  const audioTimeoutRef = useRef<number | null>(null);
+  const elementTimeoutsRef = useRef<Map<string, number>>(new Map());
 
-  const [activeVisualEvent, setActiveVisualEvent] = useState<OverlayEvent | null>(null);
-  const [soundNoticeEvent, setSoundNoticeEvent] = useState<OverlayEvent | null>(null);
+  const [elements, setElements] = useState<OverlayActiveElement[]>([]);
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
 
-  function clearTimers() {
-    if (completionTimeoutRef.current) {
-      window.clearTimeout(completionTimeoutRef.current);
-      completionTimeoutRef.current = null;
-    }
-    if (noticeTimeoutRef.current) {
-      window.clearTimeout(noticeTimeoutRef.current);
-      noticeTimeoutRef.current = null;
+  function clearAudioTimeout() {
+    if (audioTimeoutRef.current) {
+      window.clearTimeout(audioTimeoutRef.current);
+      audioTimeoutRef.current = null;
     }
   }
 
-  function finishCurrentEvent() {
-    clearTimers();
+  function stopAudio() {
+    clearAudioTimeout();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       audioRef.current.removeAttribute("src");
       audioRef.current.load();
     }
-    if (videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
-    }
-    processingRef.current = false;
-    currentEventRef.current = null;
-    setActiveVisualEvent(null);
-    setSoundNoticeEvent(null);
-    processNextEvent();
+    setPlayingAudioId(null);
   }
 
-  function processNextEvent() {
-    if (processingRef.current) return;
-    const nextEvent = queueRef.current.shift();
-    if (!nextEvent) return;
+  function playAudioElement(element: OverlayActiveElement) {
+    stopAudio();
 
-    processingRef.current = true;
-    currentEventRef.current = nextEvent;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current.src = element.media_url;
+      audioRef.current.volume =
+        clampStageAudioVolumePercent(element.audio_volume_percent) / 100;
+      audioRef.current.load();
+      setPlayingAudioId(element.id);
 
-    if (nextEvent.media_type === "sound") {
-      setActiveVisualEvent(null);
-      setSoundNoticeEvent(nextEvent);
+      void audioRef.current
+        .play()
+        .catch((caughtError) =>
+          console.warn("Falha ao tocar audio no overlay do OBS:", caughtError)
+        );
+    }
 
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-        audioRef.current.src = nextEvent.media_url;
-        audioRef.current.volume =
-          clampStageAudioVolumePercent(nextEvent.audio_volume_percent) / 100;
-        audioRef.current.load();
-        void audioRef.current
-          .play()
-          .catch((caughtError) =>
-            console.warn("Falha ao tocar audio no overlay do OBS:", caughtError)
-          );
+    // Fallback timeout
+    audioTimeoutRef.current = window.setTimeout(() => {
+      stopAudio();
+    }, SOUND_FALLBACK_TIMEOUT_MS);
+  }
+
+  function scheduleElementRemoval(elementId: string, durationMs: number) {
+    const timeoutId = window.setTimeout(() => {
+      elementTimeoutsRef.current.delete(elementId);
+    }, durationMs);
+
+    elementTimeoutsRef.current.set(elementId, timeoutId);
+  }
+
+  async function loadOverlayState(targetStream: string) {
+    try {
+      const response = await fetch(
+        `/api/live-overlay-state?stream=${encodeURIComponent(targetStream)}`,
+        { cache: "no-store" }
+      );
+
+      const payload = (await response.json().catch(() => null)) as OverlayStateResponse | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.roomOwner ? "Failed to load state" : "Invalid response");
       }
 
-      noticeTimeoutRef.current = window.setTimeout(() => {
-        setSoundNoticeEvent((current) => (current?.id === nextEvent.id ? null : current));
-      }, STAGE_SOUND_NOTICE_MS);
+      if (!payload) throw new Error("No payload");
 
-      completionTimeoutRef.current = window.setTimeout(() => {
-        finishCurrentEvent();
-      }, SOUND_FALLBACK_TIMEOUT_MS);
-      return;
-    }
+      // Only update if version changed
+      if (payload.version === lastVersionRef.current) {
+        return;
+      }
 
-    setSoundNoticeEvent(null);
-    setActiveVisualEvent(nextEvent);
+      lastVersionRef.current = payload.version;
 
-    if (nextEvent.media_type === "image") {
-      const durationMs = (nextEvent.image_duration_seconds || 8) * 1000;
-      completionTimeoutRef.current = window.setTimeout(() => {
-        finishCurrentEvent();
-      }, durationMs);
-      return;
-    }
+      // Process elements
+      const now = new Date().getTime();
+      const validElements = (payload.elements ?? []).filter((el) => {
+        if (!el.expires_at) return true;
+        return new Date(el.expires_at).getTime() > now;
+      });
 
-    completionTimeoutRef.current = window.setTimeout(() => {
-      finishCurrentEvent();
-    }, VIDEO_FALLBACK_TIMEOUT_MS);
-  }
+      setElements(validElements);
 
-  async function loadOverlayFeed(targetStream: string) {
-    const response = await fetch(`/api/live-stage-feed?stream=${encodeURIComponent(targetStream)}`, {
-      cache: "no-store"
-    });
-
-    const payload = (await response.json().catch(() => null)) as
-      | {
-          error?: string;
-          events?: OverlayEvent[];
+      // Schedule audio playback and auto-removal
+      for (const element of validElements) {
+        if (element.media_type === "sound") {
+          playAudioElement(element);
+        } else if (element.media_type === "image" && element.image_duration_seconds) {
+          const durationMs = element.image_duration_seconds * 1000;
+          scheduleElementRemoval(element.id, durationMs);
         }
-      | null;
-
-    if (!response.ok) {
-      throw new Error(payload?.error || "Falha ao atualizar o overlay do palco.");
-    }
-
-    const overlayEvents = payload?.events ?? [];
-    const seenIds = seenIdsRef.current;
-
-    if (!initializedRef.current) {
-      for (const eventItem of overlayEvents) {
-        seenIds.add(eventItem.id);
       }
-      initializedRef.current = true;
-      return;
+    } catch (caughtError) {
+      console.warn(
+        "Falha ao atualizar overlay do palco:",
+        caughtError instanceof Error ? caughtError.message : caughtError
+      );
     }
-
-    const newEvents = overlayEvents.filter((eventItem) => !seenIds.has(eventItem.id));
-    if (newEvents.length === 0) return;
-
-    for (const eventItem of newEvents) {
-      seenIds.add(eventItem.id);
-      queueRef.current.push(eventItem);
-    }
-
-    if (seenIds.size > 400) {
-      seenIdsRef.current = new Set(overlayEvents.map((eventItem) => eventItem.id));
-    }
-
-    processNextEvent();
   }
 
   useEffect(() => {
@@ -191,125 +184,166 @@ export default function LiveStageOverlayPage() {
 
     let active = true;
 
-    loadOverlayFeed(requestedStream).catch((caughtError) => {
-      if (!active) return;
-      console.warn(
-        "Falha ao carregar overlay do palco:",
-        caughtError instanceof Error ? caughtError.message : caughtError
-      );
+    // Initial load
+    loadOverlayState(requestedStream).catch(() => {
+      // Error already logged in function
     });
 
+    // Poll for updates
     const interval = window.setInterval(() => {
-      loadOverlayFeed(requestedStream).catch((caughtError) => {
-        if (!active) return;
-        console.warn(
-          "Falha ao atualizar overlay do palco:",
-          caughtError instanceof Error ? caughtError.message : caughtError
-        );
-      });
+      if (active) {
+        loadOverlayState(requestedStream).catch(() => {
+          // Error already logged in function
+        });
+      }
     }, STAGE_OVERLAY_POLL_MS);
 
     return () => {
       active = false;
       window.clearInterval(interval);
-      clearTimers();
+      clearAudioTimeout();
+      elementTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      elementTimeoutsRef.current.clear();
+      stopAudio();
       document.documentElement.classList.remove("tw-stage-overlay-html");
       document.body.classList.remove("tw-stage-overlay-body");
     };
   }, []);
 
+  // Handle video playback
   useEffect(() => {
-    if (activeVisualEvent?.media_type !== "video" || !videoRef.current) return;
+    for (const element of elements) {
+      if (element.media_type !== "video") continue;
 
-    videoRef.current.pause();
-    videoRef.current.currentTime = 0;
-    videoRef.current.load();
-    void videoRef.current
-      .play()
-      .catch((caughtError) =>
-        console.warn("Falha ao tocar video no overlay do OBS:", caughtError)
-      );
-  }, [activeVisualEvent]);
+      const videoRef = videoRefsRef.current.get(element.id);
+      if (!videoRef) continue;
 
-  const activeVisualSizePercent = activeVisualEvent
-    ? clampStageDisplaySizePercent(activeVisualEvent.display_size_percent)
-    : 100;
-  const activeVisualXPercent = activeVisualEvent
-    ? clampStageDisplayCoordinatePercent(activeVisualEvent.display_x_percent)
-    : 50;
-  const activeVisualYPercent = activeVisualEvent
-    ? clampStageDisplayCoordinatePercent(activeVisualEvent.display_y_percent)
-    : 50;
-  const activeVisualFit = activeVisualEvent
-    ? normalizeStageDisplayFit(activeVisualEvent.display_fit)
-    : "contain";
-  const activeVisualAnimation = activeVisualEvent
-    ? normalizeStageEntryAnimation(activeVisualEvent.entry_animation)
-    : "fade";
-  const soundNoticeAnimation = soundNoticeEvent
-    ? normalizeStageEntryAnimation(soundNoticeEvent.entry_animation)
-    : "fade";
+      videoRef.pause();
+      videoRef.currentTime = 0;
+      videoRef.load();
+      void videoRef
+        .play()
+        .catch((caughtError) =>
+          console.warn("Falha ao tocar video no overlay do OBS:", caughtError)
+        );
+    }
+  }, [elements]);
+
+  // Sort by z-index
+  const sortedElements = [...elements].sort((a, b) => a.z_index - b.z_index);
 
   return (
     <main className={styles.overlayRoot}>
       <audio
         ref={audioRef}
         className={styles.hiddenAudio}
-        onEnded={finishCurrentEvent}
-        onError={finishCurrentEvent}
+        onEnded={stopAudio}
+        onError={stopAudio}
       />
 
-      {activeVisualEvent ? (
-        <section className={styles.visualLayer}>
-          <div className={styles.visualMediaLayer}>
-            <div
-              key={`${activeVisualEvent.id}:${activeVisualAnimation}:${activeVisualSizePercent}:${activeVisualFit}:${activeVisualXPercent}:${activeVisualYPercent}`}
-              className={styles.visualFrame}
-              data-animation={activeVisualAnimation}
+      <div className={styles.elementsContainer}>
+        {sortedElements.map((element) => {
+          const sizePercent = clampStageDisplaySizePercent(element.display_size_percent);
+          const xPercent = clampStageDisplayCoordinatePercent(element.display_x_percent);
+          const yPercent = clampStageDisplayCoordinatePercent(element.display_y_percent);
+          const fit = normalizeStageDisplayFit(element.display_fit);
+          const animation = normalizeStageEntryAnimation(element.entry_animation);
+          const isPlaying = playingAudioId === element.id;
+
+          return element.media_type === "sound" ? (
+            // Sound element - show notice
+            <aside
+              key={element.id}
+              className={styles.soundNotice}
+              data-animation={animation}
               style={
                 {
-                  left: `${activeVisualXPercent}%`,
-                  top: `${activeVisualYPercent}%`,
-                  width: `${activeVisualSizePercent}%`,
-                  height: `${activeVisualSizePercent}%`
+                  zIndex: element.z_index
                 } satisfies CSSProperties
               }
             >
-              {activeVisualEvent.media_type === "image" ? (
-                <img
-                  className={styles.visualMedia}
-                  data-fit={activeVisualFit}
-                  src={activeVisualEvent.media_url}
-                  alt={activeVisualEvent.asset_name}
-                />
-              ) : null}
-
-              {activeVisualEvent.media_type === "video" ? (
-                <video
-                  key={activeVisualEvent.id}
-                  ref={videoRef}
-                  className={styles.visualMedia}
-                  data-fit={activeVisualFit}
-                  src={activeVisualEvent.media_url}
-                  autoPlay
-                  playsInline
-                  onEnded={finishCurrentEvent}
-                  onError={finishCurrentEvent}
-                />
-              ) : null}
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {soundNoticeEvent ? (
-        <aside className={styles.soundNotice} data-animation={soundNoticeAnimation}>
-          <p className={styles.noticeText}>
-            @{soundNoticeEvent.triggered_by_handle} usou um comando de som:{" "}
-            <strong>{soundNoticeEvent.asset_name}</strong>
-          </p>
-        </aside>
-      ) : null}
+              <p className={styles.noticeText}>
+                @{element.added_by_handle} usou {element.asset_command}:{" "}
+                <strong>{element.asset_name}</strong>
+              </p>
+            </aside>
+          ) : element.media_type === "image" ? (
+            // Image element
+            <section
+              key={element.id}
+              className={styles.visualLayer}
+              style={
+                {
+                  zIndex: element.z_index
+                } satisfies CSSProperties
+              }
+            >
+              <div className={styles.visualMediaLayer}>
+                <div
+                  className={styles.visualFrame}
+                  data-animation={animation}
+                  style={
+                    {
+                      left: `${xPercent}%`,
+                      top: `${yPercent}%`,
+                      width: `${sizePercent}%`,
+                      height: `${sizePercent}%`
+                    } satisfies CSSProperties
+                  }
+                >
+                  <img
+                    className={styles.visualMedia}
+                    data-fit={fit}
+                    src={element.media_url}
+                    alt={element.asset_name}
+                  />
+                </div>
+              </div>
+            </section>
+          ) : element.media_type === "video" ? (
+            // Video element
+            <section
+              key={element.id}
+              className={styles.visualLayer}
+              style={
+                {
+                  zIndex: element.z_index
+                } satisfies CSSProperties
+              }
+            >
+              <div className={styles.visualMediaLayer}>
+                <div
+                  className={styles.visualFrame}
+                  data-animation={animation}
+                  style={
+                    {
+                      left: `${xPercent}%`,
+                      top: `${yPercent}%`,
+                      width: `${sizePercent}%`,
+                      height: `${sizePercent}%`
+                    } satisfies CSSProperties
+                  }
+                >
+                  <video
+                    ref={(ref) => {
+                      if (ref) videoRefsRef.current.set(element.id, ref);
+                      else videoRefsRef.current.delete(element.id);
+                    }}
+                    className={styles.visualMedia}
+                    data-fit={fit}
+                    src={element.media_url}
+                    autoPlay
+                    playsInline
+                    onError={() => {
+                      /* ignore */
+                    }}
+                  />
+                </div>
+              </div>
+            </section>
+          ) : null;
+        })}
+      </div>
     </main>
   );
 }

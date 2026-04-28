@@ -298,6 +298,70 @@ add column if not exists entry_animation text not null default 'fade';
 alter table if exists public.live_overlay_assets
 add column if not exists audio_volume_percent integer not null default 100;
 
+-- Live overlay state table: tracks actively displayed elements
+create table if not exists public.live_overlay_active_elements (
+  id uuid primary key default gen_random_uuid(),
+  room_owner_user_id uuid not null references public.accounts(user_id) on delete cascade,
+  asset_id uuid not null references public.live_overlay_assets(id) on delete cascade,
+  asset_name text not null,
+  asset_command text not null,
+  media_url text not null,
+  media_type text not null,
+  image_duration_seconds integer,
+  display_size_percent integer not null default 60,
+  display_x_percent integer not null default 50,
+  display_y_percent integer not null default 50,
+  display_fit text not null default 'contain',
+  entry_animation text not null default 'fade',
+  audio_volume_percent integer not null default 100,
+  z_index integer not null default 1,
+  added_by_user_id uuid not null references public.accounts(user_id) on delete cascade,
+  added_by_handle text not null,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz,
+  constraint live_overlay_active_elements_name_nonempty check (
+    length(trim(asset_name)) > 0
+  ),
+  constraint live_overlay_active_elements_media_type_valid check (
+    media_type in ('sound', 'image', 'video')
+  ),
+  constraint live_overlay_active_elements_display_size_valid check (
+    display_size_percent between 5 and 150
+  ),
+  constraint live_overlay_active_elements_display_x_valid check (
+    display_x_percent between 0 and 100
+  ),
+  constraint live_overlay_active_elements_display_y_valid check (
+    display_y_percent between 0 and 100
+  ),
+  constraint live_overlay_active_elements_display_fit_valid check (
+    display_fit in ('contain', 'cover')
+  ),
+  constraint live_overlay_active_elements_entry_animation_valid check (
+    entry_animation in ('none', 'fade', 'pop', 'slide-up', 'slide-left')
+  ),
+  constraint live_overlay_active_elements_audio_volume_valid check (
+    audio_volume_percent between 0 and 100
+  ),
+  constraint live_overlay_active_elements_z_index_valid check (
+    z_index >= 1 and z_index <= 1000
+  )
+);
+
+-- Create index for efficient queries
+create index if not exists live_overlay_active_elements_room_idx 
+on public.live_overlay_active_elements(room_owner_user_id);
+
+create index if not exists live_overlay_active_elements_created_idx 
+on public.live_overlay_active_elements(created_at);
+
+-- Table for tracking overlay state version (for cache busting)
+create table if not exists public.live_overlay_state_version (
+  room_owner_user_id uuid primary key references public.accounts(user_id) on delete cascade,
+  version integer not null default 1,
+  last_updated_at timestamptz not null default now()
+);
+
 alter table if exists public.live_overlay_events
 add column if not exists display_size_percent integer not null default 60;
 
