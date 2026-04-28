@@ -602,6 +602,35 @@
   gap: 12px;
 }
 
+.liveControlsBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.liveElementList {
+  display: grid;
+  gap: 12px;
+}
+
+.liveElementCard {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(139, 174, 205, 0.18);
+  background: rgba(5, 13, 20, 0.48);
+}
+
+.liveQuickGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .activityItem,
 .assetCard,
 .emptyState {
@@ -718,6 +747,10 @@
   }
 
   .visualEditorGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .liveQuickGrid {
     grid-template-columns: minmax(0, 1fr);
   }
 

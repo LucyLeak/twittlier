@@ -6,77 +6,24 @@ import {
   clampStageAudioVolumePercent,
   clampStageDisplayCoordinatePercent,
   clampStageDisplaySizePercent,
+  getOverlayStateByStream,
   normalizeStageDisplayFit,
   normalizeStageEntryAnimation,
-  type StageAssetType,
-  type StageDisplayFit,
-  type StageEntryAnimation
+  type OverlayActiveElement,
+  type OverlayStateResponse
 } from "@/lib/live-stage";
 import styles from "./page.module.css";
-
-type OverlayActiveElement = {
-  id: string;
-  asset_id: string;
-  asset_name: string;
-  asset_command: string;
-  media_url: string;
-  media_type: StageAssetType;
-  image_duration_seconds: number | null;
-  display_size_percent: number;
-  display_x_percent: number;
-  display_y_percent: number;
-  display_fit: StageDisplayFit;
-  entry_animation: StageEntryAnimation;
-  audio_volume_percent: number;
-  z_index: number;
-  added_by_handle: string;
-  created_at: string;
-  expires_at: string | null;
-};
-
-type OverlayStateResponse = {
-  roomOwner: {
-    user_id: string;
-    handle: string;
-    name: string | null;
-  };
-  elements: OverlayActiveElement[];
-  version: number;
-  timestamp: string;
-};
-
-type OverlayStateResponse = {
-  roomOwner: {
-    user_id: string;
-    handle: string;
-    name: string | null;
-  };
-  elements: OverlayActiveElement[];
-  version: number;
-  timestamp: string;
-};
-
-const SOUND_FALLBACK_TIMEOUT_MS = 30_000;
 
 export default function LiveStageOverlayPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRefsRef = useRef<Map<string, HTMLVideoElement | null>>(new Map());
   const lastVersionRef = useRef(-1);
-  const audioTimeoutRef = useRef<number | null>(null);
   const elementTimeoutsRef = useRef<Map<string, number>>(new Map());
 
   const [elements, setElements] = useState<OverlayActiveElement[]>([]);
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
 
-  function clearAudioTimeout() {
-    if (audioTimeoutRef.current) {
-      window.clearTimeout(audioTimeoutRef.current);
-      audioTimeoutRef.current = null;
-    }
-  }
-
   function stopAudio() {
-    clearAudioTimeout();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -105,10 +52,6 @@ export default function LiveStageOverlayPage() {
         );
     }
 
-    // Fallback timeout
-    audioTimeoutRef.current = window.setTimeout(() => {
-      stopAudio();
-    }, SOUND_FALLBACK_TIMEOUT_MS);
   }
 
   function scheduleElementRemoval(elementId: string, durationMs: number) {
@@ -121,18 +64,7 @@ export default function LiveStageOverlayPage() {
 
   async function loadOverlayState(targetStream: string) {
     try {
-      const response = await fetch(
-        `/api/live-overlay-state?stream=${encodeURIComponent(targetStream)}`,
-        { cache: "no-store" }
-      );
-
-      const payload = (await response.json().catch(() => null)) as OverlayStateResponse | null;
-
-      if (!response.ok) {
-        throw new Error(payload?.roomOwner ? "Failed to load state" : "Invalid response");
-      }
-
-      if (!payload) throw new Error("No payload");
+      const payload = (await getOverlayStateByStream(targetStream)) as OverlayStateResponse;
 
       // Only update if version changed
       if (payload.version === lastVersionRef.current) {
@@ -147,6 +79,15 @@ export default function LiveStageOverlayPage() {
         if (!el.expires_at) return true;
         return new Date(el.expires_at).getTime() > now;
       });
+
+      if (playingAudioId) {
+        const stillHasPlayingAudio = validElements.some(
+          (element) => element.id === playingAudioId && element.media_type === "sound"
+        );
+        if (!stillHasPlayingAudio) {
+          stopAudio();
+        }
+      }
 
       setElements(validElements);
 
@@ -201,7 +142,6 @@ export default function LiveStageOverlayPage() {
     return () => {
       active = false;
       window.clearInterval(interval);
-      clearAudioTimeout();
       elementTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
       elementTimeoutsRef.current.clear();
       stopAudio();

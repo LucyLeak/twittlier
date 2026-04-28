@@ -55,9 +55,40 @@ export type StageEventRow = {
   created_at: string;
 };
 
+export type OverlayActiveElement = {
+  id: string;
+  asset_id: string;
+  asset_name: string;
+  asset_command: string;
+  media_url: string;
+  media_type: StageAssetType;
+  image_duration_seconds: number | null;
+  display_size_percent: number;
+  display_x_percent: number;
+  display_y_percent: number;
+  display_fit: StageDisplayFit;
+  entry_animation: StageEntryAnimation;
+  audio_volume_percent: number;
+  z_index: number;
+  added_by_handle: string;
+  created_at: string;
+  expires_at: string | null;
+};
+
+export type OverlayStateResponse = {
+  roomOwner: {
+    user_id: string;
+    handle: string;
+    name: string | null;
+  };
+  elements: OverlayActiveElement[];
+  version: number;
+  timestamp: string;
+};
+
 export const DEFAULT_STAGE_IMAGE_DURATION_SECONDS = 8;
 export const MIN_STAGE_IMAGE_DURATION_SECONDS = 2;
-export const MAX_STAGE_IMAGE_DURATION_SECONDS = 120;
+export const MAX_STAGE_IMAGE_DURATION_SECONDS = 7200;
 export const DEFAULT_STAGE_DISPLAY_SIZE_PERCENT = 60;
 export const MIN_STAGE_DISPLAY_SIZE_PERCENT = 5;
 export const MAX_STAGE_DISPLAY_SIZE_PERCENT = 150;
@@ -346,4 +377,27 @@ export async function clearOverlayState(roomOwnerId: string) {
   }
 
   return response.json();
+}
+
+export async function getOverlayStateByStream(streamHandle: string) {
+  const response = await fetch(
+    `/api/live-overlay-state?stream=${encodeURIComponent(streamHandle)}`,
+    {
+      cache: "no-store"
+    }
+  );
+
+  const payload = (await response
+    .json()
+    .catch(() => null)) as OverlayStateResponse | { error?: string } | null;
+
+  if (!response.ok || !payload || !("elements" in payload)) {
+    const message =
+      payload && "error" in payload && payload.error
+        ? payload.error
+        : "Failed to load overlay state";
+    throw new Error(message);
+  }
+
+  return payload;
 }

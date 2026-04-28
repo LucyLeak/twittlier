@@ -30,11 +30,13 @@ import {
   updateOverlayElement,
   removeOverlayElement,
   clearOverlayState,
+  getOverlayStateByStream,
   type StageDisplayFit,
   type StageEntryAnimation,
   type StageAssetRow,
   type StageAssetType,
-  type StageEventRow
+  type StageEventRow,
+  type OverlayActiveElement
 } from "@/lib/live-stage";
 import styles from "./page.module.css";
 
@@ -109,6 +111,14 @@ function summarizeStageAssetVisual(asset: StageAssetRow) {
   const durationLabel =
     asset.media_type === "image" ? ` | ${asset.image_duration_seconds || 8}s` : "";
   return `${sizeLabel} | ${coordinateLabel} | ${fitLabel} | ${animationLabel}${durationLabel}`;
+}
+
+function summarizeActiveElementVisual(element: OverlayActiveElement) {
+  if (element.media_type === "sound") {
+    return `Audio ${element.audio_volume_percent}%`;
+  }
+
+  return `Tamanho ${element.display_size_percent}% | X ${element.display_x_percent}% | Y ${element.display_y_percent}% | Z ${element.z_index}`;
 }
 
 type StageAssetConfiguratorProps = {
@@ -469,6 +479,8 @@ export default function LiveModPanelPage() {
   const [roomHandleInput, setRoomHandleInput] = useState("");
   const [assets, setAssets] = useState<StageAssetRow[]>([]);
   const [events, setEvents] = useState<StageEventRow[]>([]);
+  const [activeElements, setActiveElements] = useState<OverlayActiveElement[]>([]);
+  const [overlayVersion, setOverlayVersion] = useState(0);
   const [quickCommand, setQuickCommand] = useState("");
   const [assetName, setAssetName] = useState("");
   const [assetCommand, setAssetCommand] = useState("");
@@ -484,6 +496,7 @@ export default function LiveModPanelPage() {
   const [isSavingAsset, setIsSavingAsset] = useState(false);
   const [isSwitchingRoom, setIsSwitchingRoom] = useState(false);
   const [busyAssetId, setBusyAssetId] = useState("");
+  const [busyActiveElementId, setBusyActiveElementId] = useState("");
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [isForbidden, setIsForbidden] = useState(false);
@@ -583,12 +596,22 @@ export default function LiveModPanelPage() {
     setEvents((data as StageEventRow[]) ?? []);
   }
 
-  async function loadPanelData(roomOwnerUserId: string, silent = false) {
+  async function loadActiveOverlayElements(streamHandle: string) {
+    const payload = await getOverlayStateByStream(streamHandle);
+    setActiveElements(payload.elements ?? []);
+    setOverlayVersion(payload.version ?? 0);
+  }
+
+  async function loadPanelData(roomOwnerUserId: string, streamHandle: string, silent = false) {
     if (!silent) {
       setIsRefreshing(true);
     }
     try {
-      await Promise.all([loadStageAssets(roomOwnerUserId), loadRecentStageEvents(roomOwnerUserId)]);
+      await Promise.all([
+        loadStageAssets(roomOwnerUserId),
+        loadRecentStageEvents(roomOwnerUserId),
+        streamHandle ? loadActiveOverlayElements(streamHandle) : Promise.resolve()
+      ]);
     } finally {
       if (!silent) {
         setIsRefreshing(false);
@@ -611,7 +634,7 @@ export default function LiveModPanelPage() {
       router.replace(`/live/painel?stream=${encodeURIComponent(normalized)}`, { scroll: false });
     }
 
-    await loadPanelData(roomOwner.user_id);
+    await loadPanelData(roomOwner.user_id, roomOwner.handle);
     if (currentViewer.handle === roomOwner.handle) {
       setStatus("Painel sincronizado com a sua propria live.");
       return;
@@ -673,7 +696,7 @@ export default function LiveModPanelPage() {
     if (!viewerAccount?.is_moderator || !roomOwnerAccount) return;
 
     const interval = window.setInterval(() => {
-      loadPanelData(roomOwnerAccount.user_id, true).catch((caughtError) => {
+      loadPanelData(roomOwnerAccount.user_id, roomOwnerAccount.handle, true).catch((caughtError) => {
         const messageText =
           caughtError instanceof Error
             ? caughtError.message
@@ -722,11 +745,6 @@ export default function LiveModPanelPage() {
     const detectedType = inferStageAssetTypeFromMime(selected.type);
     if (!detectedType) {
       setError("Formato invalido. Envie audio, imagem ou video.");
-      return;
-    }
-
-    if (selected.size > 60 * 1024 * 1024) {
-      setError("O asset precisa ter no maximo 60MB.");
       return;
     }
 
@@ -864,7 +882,7 @@ export default function LiveModPanelPage() {
       setCreateStyleDraft(createDefaultStageAssetStyleDraft());
       clearSelectedFile();
       setStatus(`Asset ${name} adicionado no painel da live.`);
-      await loadPanelData(roomOwnerAccount.user_id);
+      await loadPanelData(roomOwnerAccount.user_id, roomOwnerAccount.handle);
     } catch (caughtError) {
       const messageText =
         caughtError instanceof Error ? caughtError.message : "Falha ao salvar asset.";
@@ -886,6 +904,7 @@ export default function LiveModPanelPage() {
       await addElementToOverlayState(roomOwnerAccount.user_id, asset);
       setStatus(`${asset.name} adicionado ao overlay em tempo real.`);
       await loadRecentStageEvents(roomOwnerAccount.user_id);
+      await loadActiveOverlayElements(roomOwnerAccount.handle);
     } catch (caughtError) {
       const messageText =
         caughtError instanceof Error ? caughtError.message : "Falha ao disparar asset.";
@@ -914,6 +933,78 @@ export default function LiveModPanelPage() {
 
     await triggerAsset(asset);
     setQuickCommand("");
+  }
+
+  async function handleRemoveActiveElement(element: OverlayActiveElement) {
+    if (!roomOwnerAccount) return;
+
+    setBusyActiveElementId(element.id);
+    setError("");
+    setStatus("");
+    try {
+      await removeOverlayElement(element.id, roomOwnerAccount.user_id);
+      setStatus(`${element.asset_name} removido do palco ao vivo.`);
+      await loadActiveOverlayElements(roomOwnerAccount.handle);
+    } catch (caughtError) {
+      const messageText =
+        caughtError instanceof Error ? caughtError.message : "Falha ao remover elemento ativo.";
+      setError(messageText);
+    } finally {
+      setBusyActiveElementId("");
+    }
+  }
+
+  async function handleClearOverlayNow() {
+    if (!roomOwnerAccount) return;
+    setBusyActiveElementId("clear-all");
+    setError("");
+    setStatus("");
+    try {
+      await clearOverlayState(roomOwnerAccount.user_id);
+      setStatus("Palco limpo imediatamente.");
+      await loadActiveOverlayElements(roomOwnerAccount.handle);
+    } catch (caughtError) {
+      const messageText =
+        caughtError instanceof Error ? caughtError.message : "Falha ao limpar palco ao vivo.";
+      setError(messageText);
+    } finally {
+      setBusyActiveElementId("");
+    }
+  }
+
+  async function handleActiveElementFieldUpdate(
+    element: OverlayActiveElement,
+    field: "displayXPercent" | "displayYPercent" | "displaySizePercent" | "audioVolumePercent",
+    value: string
+  ) {
+    if (!roomOwnerAccount) return;
+    setBusyActiveElementId(element.id);
+    setError("");
+
+    try {
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) {
+        throw new Error("Valor numerico invalido para atualizacao ao vivo.");
+      }
+
+      const updatePayload =
+        field === "displayXPercent"
+          ? { displayXPercent: clampStageDisplayCoordinatePercent(parsed) }
+          : field === "displayYPercent"
+            ? { displayYPercent: clampStageDisplayCoordinatePercent(parsed) }
+            : field === "displaySizePercent"
+              ? { displaySizePercent: clampStageDisplaySizePercent(parsed) }
+              : { audioVolumePercent: clampStageAudioVolumePercent(parsed) };
+
+      await updateOverlayElement(element.id, roomOwnerAccount.user_id, updatePayload);
+      await loadActiveOverlayElements(roomOwnerAccount.handle);
+    } catch (caughtError) {
+      const messageText =
+        caughtError instanceof Error ? caughtError.message : "Falha ao atualizar elemento ativo.";
+      setError(messageText);
+    } finally {
+      setBusyActiveElementId("");
+    }
   }
 
   function startEditingAsset(asset: StageAssetRow) {
@@ -963,7 +1054,7 @@ export default function LiveModPanelPage() {
       setStatus(`Visual de ${editingAsset.name} atualizado.`);
       setEditingAssetId("");
       setEditStyleDraft(null);
-      await loadPanelData(roomOwnerAccount.user_id);
+      await loadPanelData(roomOwnerAccount.user_id, roomOwnerAccount.handle);
     } catch (caughtError) {
       const messageText =
         caughtError instanceof Error ? caughtError.message : "Falha ao salvar a edicao.";
@@ -999,7 +1090,7 @@ export default function LiveModPanelPage() {
       if (deleteError) throw deleteError;
 
       setStatus(`${asset.name} removido da soundboard da live.`);
-      await loadPanelData(roomOwnerAccount.user_id);
+      await loadPanelData(roomOwnerAccount.user_id, roomOwnerAccount.handle);
     } catch (caughtError) {
       const messageText =
         caughtError instanceof Error ? caughtError.message : "Falha ao remover asset.";
@@ -1135,7 +1226,8 @@ export default function LiveModPanelPage() {
 
         <div className={styles.noticeBar}>
           <span>Atalhos funcionam quando o painel esta em foco.</span>
-          <span>Som gera aviso na tela. Video e imagem entram sem aviso textual.</span>
+          <span>Agora o palco e stateful: da para remover/editar elemento ativo em tempo real.</span>
+          <span>Upload sem limite artificial de tamanho no frontend.</span>
           {isRefreshing ? <span>Atualizando biblioteca...</span> : null}
         </div>
 
@@ -1255,6 +1347,145 @@ export default function LiveModPanelPage() {
             )}
           </div>
         </article>
+      </section>
+
+      <section className={styles.card}>
+        <div className={styles.cardHead}>
+          <div>
+            <p className={styles.eyebrow}>Cena ao vivo</p>
+            <h2 className={styles.cardTitle}>Elementos ativos em tempo real</h2>
+          </div>
+          <span className={styles.sideHint}>
+            Versao {overlayVersion} | {activeElements.length} ativos
+          </span>
+        </div>
+
+        <div className={styles.liveControlsBar}>
+          <p className={styles.fieldHint}>
+            Aqui voce consegue parar, remover e ajustar os elementos que ja estao no palco sem
+            esperar o tempo acabar.
+          </p>
+          <button
+            className={styles.ghostButton}
+            type="button"
+            disabled={activeElements.length === 0 || busyActiveElementId === "clear-all"}
+            onClick={() => void handleClearOverlayNow()}
+          >
+            {busyActiveElementId === "clear-all" ? "Limpando..." : "Limpar palco agora"}
+          </button>
+        </div>
+
+        {activeElements.length === 0 ? (
+          <div className={styles.emptyState}>Nenhum elemento ativo no palco neste momento.</div>
+        ) : (
+          <div className={styles.liveElementList}>
+            {activeElements.map((element) => (
+              <article className={styles.liveElementCard} key={element.id}>
+                <div className={styles.assetCardTop}>
+                  <div>
+                    <h4 className={styles.assetName}>{element.asset_name}</h4>
+                    <p className={styles.assetMeta}>
+                      {element.asset_command} | por @{element.added_by_handle}
+                    </p>
+                    <p className={styles.assetMeta}>{summarizeActiveElementVisual(element)}</p>
+                  </div>
+                  <span className={styles.assetBadge}>{formatStageAssetType(element.media_type)}</span>
+                </div>
+
+                {(element.media_type === "image" || element.media_type === "video") ? (
+                  <div className={styles.liveQuickGrid}>
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>X%</span>
+                      <input
+                        className={styles.textInput}
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={element.display_x_percent}
+                        onBlur={(event) =>
+                          void handleActiveElementFieldUpdate(
+                            element,
+                            "displayXPercent",
+                            event.target.value
+                          )
+                        }
+                      />
+                    </label>
+
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>Y%</span>
+                      <input
+                        className={styles.textInput}
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={element.display_y_percent}
+                        onBlur={(event) =>
+                          void handleActiveElementFieldUpdate(
+                            element,
+                            "displayYPercent",
+                            event.target.value
+                          )
+                        }
+                      />
+                    </label>
+
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>Tamanho%</span>
+                      <input
+                        className={styles.textInput}
+                        type="number"
+                        min={5}
+                        max={150}
+                        value={element.display_size_percent}
+                        onBlur={(event) =>
+                          void handleActiveElementFieldUpdate(
+                            element,
+                            "displaySizePercent",
+                            event.target.value
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+                ) : null}
+
+                {element.media_type === "sound" ? (
+                  <div className={styles.liveQuickGrid}>
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>Volume%</span>
+                      <input
+                        className={styles.textInput}
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={element.audio_volume_percent}
+                        onBlur={(event) =>
+                          void handleActiveElementFieldUpdate(
+                            element,
+                            "audioVolumePercent",
+                            event.target.value
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+                ) : null}
+
+                <div className={styles.assetActions}>
+                  <button
+                    className={styles.ghostButton}
+                    type="button"
+                    disabled={busyActiveElementId === element.id}
+                    onClick={() => void handleRemoveActiveElement(element)}
+                  >
+                    {busyActiveElementId === element.id ? "Removendo..." : "Parar e remover"}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       {editingAsset && editStyleDraft ? (
