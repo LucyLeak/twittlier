@@ -173,7 +173,7 @@ create table if not exists public.live_overlay_assets (
     shortcut_key is null or length(trim(shortcut_key)) between 1 and 24
   ),
   constraint live_overlay_assets_image_duration_valid check (
-    image_duration_seconds is null or image_duration_seconds between 2 and 120
+    image_duration_seconds is null or image_duration_seconds between 2 and 7200
   ),
   constraint live_overlay_assets_display_size_valid check (
     display_size_percent between 5 and 150
@@ -241,7 +241,7 @@ create table if not exists public.live_overlay_events (
     length(trim(triggered_by_handle)) > 0
   ),
   constraint live_overlay_events_image_duration_valid check (
-    image_duration_seconds is null or image_duration_seconds between 2 and 120
+    image_duration_seconds is null or image_duration_seconds between 2 and 7200
   ),
   constraint live_overlay_events_display_size_valid check (
     display_size_percent between 5 and 150

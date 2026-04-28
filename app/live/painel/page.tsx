@@ -353,7 +353,7 @@ function StageAssetConfigurator({
                 className={styles.textInput}
                 type="number"
                 min={2}
-                max={120}
+                max={7200}
                 value={draft.imageDurationSeconds}
                 onChange={(event) => onFieldChange("imageDurationSeconds", event.target.value)}
               />
@@ -1304,6 +1304,9 @@ export default function LiveModPanelPage() {
             </button>
             <a className={styles.secondaryButton} href={obsUrl || "#"} target="_blank" rel="noreferrer">
               Abrir overlay
+            </a>
+            <a className={styles.secondaryButton} href="/live/studio">
+              Abrir nova aba Studio
             </a>
             <button className={styles.ghostButton} type="button" onClick={() => router.push("/live")}>
               Voltar para Live

@@ -18,7 +18,7 @@ export default function LiveStageOverlayPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRefsRef = useRef<Map<string, HTMLVideoElement | null>>(new Map());
   const lastVersionRef = useRef(-1);
-  const elementTimeoutsRef = useRef<Map<string, number>>(new Map());
+  const seenElementIdsRef = useRef<Set<string>>(new Set());
 
   const [elements, setElements] = useState<OverlayActiveElement[]>([]);
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
@@ -54,14 +54,6 @@ export default function LiveStageOverlayPage() {
     }
   }
 
-  function scheduleElementRemoval(elementId: string, durationMs: number) {
-    const timeoutId = window.setTimeout(() => {
-      elementTimeoutsRef.current.delete(elementId);
-    }, durationMs);
-
-    elementTimeoutsRef.current.set(elementId, timeoutId);
-  }
-
   async function loadOverlayState(targetStream: string) {
     try {
       setStreamError("");
@@ -90,16 +82,17 @@ export default function LiveStageOverlayPage() {
         }
       }
 
+      const nextIds = new Set(validElements.map((element) => element.id));
+      const previousIds = seenElementIdsRef.current;
+      const newSoundElements = validElements.filter(
+        (element) => element.media_type === "sound" && !previousIds.has(element.id)
+      );
+
+      seenElementIdsRef.current = nextIds;
       setElements(validElements);
 
-      // Schedule audio playback and auto-removal
-      for (const element of validElements) {
-        if (element.media_type === "sound") {
-          playAudioElement(element);
-        } else if (element.media_type === "image" && element.image_duration_seconds) {
-          const durationMs = element.image_duration_seconds * 1000;
-          scheduleElementRemoval(element.id, durationMs);
-        }
+      if (newSoundElements.length > 0) {
+        playAudioElement(newSoundElements[newSoundElements.length - 1]);
       }
     } catch (caughtError) {
       const message =
@@ -147,15 +140,14 @@ export default function LiveStageOverlayPage() {
     return () => {
       active = false;
       window.clearInterval(interval);
-      elementTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
-      elementTimeoutsRef.current.clear();
+      seenElementIdsRef.current.clear();
       stopAudio();
       document.documentElement.classList.remove("tw-stage-overlay-html");
       document.body.classList.remove("tw-stage-overlay-body");
     };
   }, []);
 
-  // Handle video playback
+  // Handle video playback (only for newly inserted videos)
   useEffect(() => {
     for (const element of elements) {
       if (element.media_type !== "video") continue;
@@ -163,9 +155,8 @@ export default function LiveStageOverlayPage() {
       const videoRef = videoRefsRef.current.get(element.id);
       if (!videoRef) continue;
 
-      videoRef.pause();
-      videoRef.currentTime = 0;
-      videoRef.load();
+      if (videoRef.dataset.started === "true") continue;
+      videoRef.dataset.started = "true";
       void videoRef
         .play()
         .catch((caughtError) =>
@@ -198,8 +189,6 @@ export default function LiveStageOverlayPage() {
           const yPercent = clampStageDisplayCoordinatePercent(element.display_y_percent);
           const fit = normalizeStageDisplayFit(element.display_fit);
           const animation = normalizeStageEntryAnimation(element.entry_animation);
-          const isPlaying = playingAudioId === element.id;
-
           return element.media_type === "sound" ? (
             // Sound element - show notice
             <aside
@@ -284,6 +273,7 @@ export default function LiveStageOverlayPage() {
                     src={element.media_url}
                     autoPlay
                     playsInline
+                    preload="auto"
                     onError={() => {
                       /* ignore */
                     }}
